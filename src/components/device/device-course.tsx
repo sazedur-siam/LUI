@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import type { ProgressSaver } from "@/components/learn/progress-context";
 import { type CourseSource, CourseSourceProvider } from "@/components/source/course-source";
+import { StatusNotice } from "@/components/status-notice";
 import { Button } from "@/components/ui/button";
 import {
   type DeviceCourseRecord,
@@ -272,14 +273,8 @@ function Centered({ children }: { children: React.ReactNode }) {
 
 function Notice({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
   return (
-    <Centered>
-      <div className="mx-4 flex max-w-md flex-col items-center gap-3 rounded-2xl border bg-linear-to-b from-white to-[#f1f7fd] px-8 py-10 text-center text-sm text-muted-foreground">
-        <span className="tint flex size-12 items-center justify-center rounded-xl" style={{ "--c": "#1E88E5" } as React.CSSProperties}>
-          {icon}
-        </span>
-        <h2 className="text-base font-medium text-foreground">{title}</h2>
-        {children}
-      </div>
-    </Centered>
+    <StatusNotice icon={icon} title={title}>
+      {children}
+    </StatusNotice>
   );
 }
