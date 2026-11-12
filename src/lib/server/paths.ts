@@ -4,6 +4,8 @@ import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 
+import { serverFilesEnabled } from "./mode";
+
 export const DATA_DIR = process.env.LUI_DATA_DIR
   ? path.resolve(process.env.LUI_DATA_DIR)
   : path.join(process.cwd(), ".data");
@@ -21,6 +23,7 @@ export class PathError extends Error {}
  * that escapes the course root (including through symlinks).
  */
 export async function resolveInside(root: string, relPath: string) {
+  if (!serverFilesEnabled()) throw new PathError("Server file access is disabled");
   const normalizedRoot = path.resolve(root);
   const abs = path.resolve(normalizedRoot, ...relPath.split("/"));
   if (abs !== normalizedRoot && !abs.startsWith(normalizedRoot + path.sep)) {

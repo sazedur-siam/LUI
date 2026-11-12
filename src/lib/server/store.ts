@@ -5,6 +5,7 @@ import path from "node:path";
 
 import type { CourseProgress, CourseRecord, LessonProgress } from "@/lib/types";
 
+import { SERVER_FILES_DISABLED_MESSAGE, serverFilesEnabled } from "./mode";
 import { DATA_DIR, hashId, readJson, writeJsonAtomic } from "./paths";
 
 interface Db {
@@ -57,6 +58,7 @@ export async function getCourseRecord(id: string) {
 }
 
 export async function addCourse(rootInput: string, title: string): Promise<CourseRecord> {
+  if (!serverFilesEnabled()) throw new Error(SERVER_FILES_DISABLED_MESSAGE);
   const root = path.resolve(rootInput);
   const stat = await fs.stat(root).catch(() => null);
   if (!stat?.isDirectory()) throw new Error("That folder does not exist.");
