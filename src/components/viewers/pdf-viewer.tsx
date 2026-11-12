@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 
 import { Button } from "@/components/ui/button";
-import { fileUrl } from "@/lib/files";
+import { useFileUrl } from "@/components/source/course-source";
 import { cn } from "@/lib/utils";
 
 import { FileActions } from "./file-actions";
@@ -16,14 +16,14 @@ import { FileActions } from "./file-actions";
 pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
 
 export interface PdfViewerProps {
-  courseId: string;
   path: string;
   initialPage?: number;
   onPage?: (page: number, total: number) => void;
   className?: string;
 }
 
-export default function PdfViewer({ courseId, path, initialPage, onPage, className }: PdfViewerProps) {
+export default function PdfViewer({ path, initialPage, onPage, className }: PdfViewerProps) {
+  const url = useFileUrl(path);
   const scroller = useRef<HTMLDivElement>(null);
   const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [numPages, setNumPages] = useState(0);
@@ -129,13 +129,14 @@ export default function PdfViewer({ courseId, path, initialPage, onPage, classNa
           <ScanIcon />
         </Button>
         <div className="ml-auto">
-          <FileActions courseId={courseId} path={path} />
+          <FileActions path={path} />
         </div>
       </div>
 
       <div ref={scroller} onScroll={onScroll} className="scrollbar-thin relative flex-1 overflow-auto bg-[#f4f5f8]">
+        {url && (
         <Document
-          file={fileUrl(courseId, path)}
+          file={url}
           onLoadSuccess={({ numPages: n }) => {
             setNumPages(n);
             const start = Math.min(n, Math.max(1, initialPage ?? 1));
@@ -176,6 +177,7 @@ export default function PdfViewer({ courseId, path, initialPage, onPage, classNa
             </div>
           ))}
         </Document>
+        )}
       </div>
     </div>
   );

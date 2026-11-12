@@ -13,13 +13,13 @@ import { countCompleted, groupModules, moduleStats, percent, sumDurations } from
 import type { LessonProgress, Module } from "@/lib/types";
 
 export function Curriculum({
-  courseId,
+  basePath,
   modules,
   progress,
   durations,
   openModuleId,
 }: {
-  courseId: string;
+  basePath: string;
   modules: Module[];
   progress: Record<string, LessonProgress>;
   durations: Record<string, number>;
@@ -83,7 +83,7 @@ export function Curriculum({
                           return (
                             <li key={l.id}>
                               <Link
-                                href={`/course/${courseId}/learn/${l.id}`}
+                                href={`${basePath}/learn/${l.id}`}
                                 className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm hover:bg-[#f1f7fd]"
                               >
                                 {p?.completed ? (

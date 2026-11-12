@@ -15,12 +15,10 @@ export interface ResourceRef extends ResourceFile {
 
 /** A clickable resource row that opens the file in a large preview dialog. */
 export function ResourceItem({
-  courseId,
   resource,
   subtitle,
   className,
 }: {
-  courseId: string;
   resource: ResourceRef;
   subtitle?: string;
   className?: string;
@@ -60,7 +58,6 @@ export function ResourceItem({
           <div className="min-h-0 flex-1">
             {open && (
               <FileViewer
-                courseId={courseId}
                 lessonId={resource.lessonId}
                 file={{ path: resource.path, name: fileName, kind: resource.kind, size: resource.size }}
                 isResource

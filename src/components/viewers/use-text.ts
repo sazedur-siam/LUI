@@ -2,31 +2,30 @@
 
 import { useEffect, useState } from "react";
 
-import { fileUrl } from "@/lib/files";
+import { useCourseSource } from "@/components/source/course-source";
 
 export const MAX_TEXT_BYTES = 3 * 1024 * 1024;
 
-/** Fetch a course file as text (skipped when it's too large to show inline). */
-export function useFileText(courseId: string, path: string, size: number, maxBytes = MAX_TEXT_BYTES) {
-  const url = fileUrl(courseId, path);
+/** Read a course file as text (skipped when it's too large to show inline). */
+export function useFileText(path: string, size: number, maxBytes = MAX_TEXT_BYTES) {
+  const source = useCourseSource();
+  const key = `${source.courseId}|${path}`;
   const tooLarge = size > maxBytes;
-  const [result, setResult] = useState<{ url: string; text: string | null; error: string | null } | null>(null);
+  const [result, setResult] = useState<{ key: string; text: string | null; error: string | null } | null>(null);
 
   useEffect(() => {
     if (tooLarge) return;
-    const ctrl = new AbortController();
-    fetch(url, { signal: ctrl.signal })
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        setResult({ url, text: await res.text(), error: null });
-      })
-      .catch((err) => {
-        if (!ctrl.signal.aborted) setResult({ url, text: null, error: String(err) });
-      });
-    return () => ctrl.abort();
-  }, [url, tooLarge]);
+    let cancelled = false;
+    source
+      .readText(path)
+      .then((text) => !cancelled && setResult({ key, text, error: null }))
+      .catch((err) => !cancelled && setResult({ key, text: null, error: String(err) }));
+    return () => {
+      cancelled = true;
+    };
+  }, [source, path, key, tooLarge]);
 
   if (tooLarge) return { text: null, error: "too-large", loading: false };
-  const current = result?.url === url ? result : null;
+  const current = result?.key === key ? result : null;
   return { text: current?.text ?? null, error: current?.error ?? null, loading: !current };
 }

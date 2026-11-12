@@ -3,15 +3,13 @@
 import { DownloadIcon, ExternalLinkIcon, FolderSearchIcon } from "lucide-react";
 
 import { KindIcon } from "@/components/kind-icon";
+import { useCourseSource, useFileUrl } from "@/components/source/course-source";
 import { Button } from "@/components/ui/button";
-import { fileUrl, formatBytes, KIND_LABEL } from "@/lib/files";
+import { formatBytes, KIND_LABEL } from "@/lib/files";
 import { cn } from "@/lib/utils";
 import type { FileKind } from "@/lib/types";
 
-import { openExternally } from "./file-actions";
-
 export function FileCard({
-  courseId,
   path,
   name,
   kind,
@@ -19,7 +17,6 @@ export function FileCard({
   message,
   className,
 }: {
-  courseId: string;
   path: string;
   name: string;
   kind: FileKind;
@@ -27,10 +24,13 @@ export function FileCard({
   message?: string;
   className?: string;
 }) {
+  const source = useCourseSource();
+  const downloadUrl = useFileUrl(path, { download: true });
+
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center gap-4 rounded-2xl border bg-gradient-to-b from-white to-[#f1f7fd] px-6 py-14 text-center",
+        "flex flex-col items-center justify-center gap-4 rounded-2xl border bg-linear-to-b from-white to-[#f1f7fd] px-6 py-14 text-center",
         className,
       )}
     >
@@ -43,17 +43,21 @@ export function FileCard({
         {message && <p className="pt-1 text-sm text-muted-foreground">{message}</p>}
       </div>
       <div className="flex flex-wrap justify-center gap-2">
-        <Button asChild>
-          <a href={fileUrl(courseId, path, { download: true })}>
+        <Button asChild disabled={!downloadUrl}>
+          <a href={downloadUrl ?? undefined} download={name.split("/").pop()}>
             <DownloadIcon /> Download
           </a>
         </Button>
-        <Button variant="outline" onClick={() => openExternally(courseId, path, "open")}>
-          <ExternalLinkIcon /> Open with default app
-        </Button>
-        <Button variant="ghost" onClick={() => openExternally(courseId, path, "reveal")}>
-          <FolderSearchIcon /> Show in Finder
-        </Button>
+        {source.openExternally && (
+          <>
+            <Button variant="outline" onClick={() => source.openExternally?.(path, "open")}>
+              <ExternalLinkIcon /> Open with default app
+            </Button>
+            <Button variant="ghost" onClick={() => source.openExternally?.(path, "reveal")}>
+              <FolderSearchIcon /> Show in Finder
+            </Button>
+          </>
+        )}
       </div>
     </div>
   );

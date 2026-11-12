@@ -18,6 +18,7 @@ import { formatBytes, KIND_LABEL } from "@/lib/files";
 import { cn } from "@/lib/utils";
 import type { Lesson } from "@/lib/types";
 
+import { useCourseSource } from "@/components/source/course-source";
 import { useLocalPref } from "@/hooks/use-local-pref";
 
 import { useProgress } from "./progress-context";
@@ -28,7 +29,6 @@ interface NavLesson {
 }
 
 export interface LessonViewProps {
-  courseId: string;
   lesson: Lesson;
   moduleTitle: string;
   moduleNumber: number | null;
@@ -41,7 +41,8 @@ export interface LessonViewProps {
 const AUTOPLAY_KEY = "lui:autoplay-next";
 const COMPLETE_AT = 0.9;
 
-export function LessonView({ courseId, lesson, moduleTitle, moduleNumber, index, total, prev, next }: LessonViewProps) {
+export function LessonView({ lesson, moduleTitle, moduleNumber, index, total, prev, next }: LessonViewProps) {
+  const { basePath } = useCourseSource();
   const router = useRouter();
   const { get, setCompleted, savePosition, savePage, markOpened } = useProgress();
   const progress = get(lesson.id);
@@ -68,8 +69,8 @@ export function LessonView({ courseId, lesson, moduleTitle, moduleNumber, index,
   const lastSaved = useRef(0);
 
   const goNext = useCallback(() => {
-    if (next) router.push(`/course/${courseId}/learn/${next.id}`);
-  }, [next, router, courseId]);
+    if (next) router.push(`${basePath}/learn/${next.id}`);
+  }, [next, router, basePath]);
 
   // Up-next countdown after a video ends.
   useEffect(() => {
@@ -93,15 +94,15 @@ export function LessonView({ courseId, lesson, moduleTitle, moduleNumber, index,
       if (!e.shiftKey || e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === "N" && next) {
         e.preventDefault();
-        router.push(`/course/${courseId}/learn/${next.id}`);
+        router.push(`${basePath}/learn/${next.id}`);
       } else if (e.key === "P" && prev) {
         e.preventDefault();
-        router.push(`/course/${courseId}/learn/${prev.id}`);
+        router.push(`${basePath}/learn/${prev.id}`);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [courseId, next, prev, router]);
+  }, [basePath, next, prev, router]);
 
   const onTime = (position: number, duration: number) => {
     if (Math.abs(position - lastSaved.current) >= 5) {
@@ -153,11 +154,11 @@ export function LessonView({ courseId, lesson, moduleTitle, moduleNumber, index,
           <p className="truncate text-sm font-medium">{lesson.title}</p>
         </div>
         <div className="flex items-center gap-1">
-          <NavButton href={prev && `/course/${courseId}/learn/${prev.id}`} label="Previous" hint="P" title={prev?.title}>
+          <NavButton href={prev && `${basePath}/learn/${prev.id}`} label="Previous" hint="P" title={prev?.title}>
             <ChevronLeftIcon />
             <span className="hidden sm:inline">Previous</span>
           </NavButton>
-          <NavButton href={next && `/course/${courseId}/learn/${next.id}`} label="Next" hint="N" title={next?.title}>
+          <NavButton href={next && `${basePath}/learn/${next.id}`} label="Next" hint="N" title={next?.title}>
             <span className="hidden sm:inline">Next</span>
             <ChevronRightIcon />
           </NavButton>
@@ -167,7 +168,6 @@ export function LessonView({ courseId, lesson, moduleTitle, moduleNumber, index,
       <div className={cn("mx-auto w-full px-4 py-5 sm:px-6", isMedia ? "max-w-6xl" : "max-w-7xl")}>
         <FileViewer
           key={lesson.id}
-          courseId={courseId}
           lessonId={lesson.id}
           file={{ path: lesson.path, name: lesson.fileName, kind: lesson.kind, size: lesson.size }}
           media={{
@@ -227,7 +227,7 @@ export function LessonView({ courseId, lesson, moduleTitle, moduleNumber, index,
             </h2>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {lesson.resources.map((r) => (
-                <ResourceItem key={r.path} courseId={courseId} resource={{ ...r, lessonId: lesson.id }} />
+                <ResourceItem key={r.path} resource={{ ...r, lessonId: lesson.id }} />
               ))}
             </div>
           </section>

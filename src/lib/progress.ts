@@ -56,3 +56,49 @@ export function sumDurations(lessons: Lesson[], durations: Record<string, number
   for (const l of lessons) total += durations[l.id] ?? 0;
   return total;
 }
+
+export interface ProgressPatch {
+  lessonId: string;
+  completed?: boolean;
+  position?: number;
+  duration?: number;
+  page?: number;
+  opened?: boolean;
+}
+
+function isFiniteNumber(v: unknown): v is number {
+  return typeof v === "number" && Number.isFinite(v) && v >= 0;
+}
+
+/** Apply one progress update in place (shared by the server store and device storage). */
+export function applyProgressPatch(course: CourseProgress, patch: ProgressPatch, now = Date.now()) {
+  const prev: LessonProgress = course.lessons[patch.lessonId] ?? { completed: false, updatedAt: 0 };
+  const next: LessonProgress = { ...prev, updatedAt: now };
+  if (typeof patch.completed === "boolean") next.completed = patch.completed;
+  if (isFiniteNumber(patch.position)) next.position = patch.position;
+  if (isFiniteNumber(patch.duration)) next.duration = patch.duration;
+  if (isFiniteNumber(patch.page)) next.page = patch.page;
+  course.lessons[patch.lessonId] = next;
+  if (patch.opened) {
+    course.lastLessonId = patch.lessonId;
+    course.lastOpenedAt = now;
+  }
+  return next;
+}
+
+/** Find a lesson with its module and neighbours (client- and server-safe). */
+export function locateLesson(course: Pick<Course, "modules">, lessonId: string) {
+  const lessons = flatLessons(course);
+  const index = lessons.findIndex((l) => l.id === lessonId);
+  if (index < 0) return null;
+  const lesson = lessons[index];
+  const mod = course.modules.find((m) => m.id === lesson.moduleId) as Module;
+  return {
+    lesson,
+    module: mod,
+    index,
+    total: lessons.length,
+    prev: lessons[index - 1] ?? null,
+    next: lessons[index + 1] ?? null,
+  };
+}

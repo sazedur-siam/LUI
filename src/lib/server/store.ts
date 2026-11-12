@@ -3,7 +3,8 @@ import "server-only";
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import type { CourseProgress, CourseRecord, LessonProgress } from "@/lib/types";
+import { applyProgressPatch, type ProgressPatch } from "@/lib/progress";
+import type { CourseProgress, CourseRecord } from "@/lib/types";
 
 import { SERVER_FILES_DISABLED_MESSAGE, serverFilesEnabled } from "./mode";
 import { DATA_DIR, hashId, readJson, writeJsonAtomic } from "./paths";
@@ -84,30 +85,12 @@ export async function getProgress(courseId: string): Promise<CourseProgress> {
   return db.progress[courseId] ?? { lessons: {} };
 }
 
-export interface ProgressPatch {
-  lessonId: string;
-  completed?: boolean;
-  position?: number;
-  duration?: number;
-  page?: number;
-  opened?: boolean;
-}
+export type { ProgressPatch };
 
 export async function updateProgress(courseId: string, patch: ProgressPatch) {
   const db = await load();
   if (!db.courses.some((c) => c.id === courseId)) throw new Error("Unknown course");
-  const course = (db.progress[courseId] ??= { lessons: {} });
-  const prev: LessonProgress = course.lessons[patch.lessonId] ?? { completed: false, updatedAt: 0 };
-  const next: LessonProgress = { ...prev, updatedAt: Date.now() };
-  if (typeof patch.completed === "boolean") next.completed = patch.completed;
-  if (isFiniteNumber(patch.position)) next.position = patch.position;
-  if (isFiniteNumber(patch.duration)) next.duration = patch.duration;
-  if (isFiniteNumber(patch.page)) next.page = patch.page;
-  course.lessons[patch.lessonId] = next;
-  if (patch.opened) {
-    course.lastLessonId = patch.lessonId;
-    course.lastOpenedAt = Date.now();
-  }
+  const next = applyProgressPatch((db.progress[courseId] ??= { lessons: {} }), patch);
   scheduleSave();
   return next;
 }
@@ -116,8 +99,4 @@ export async function resetProgress(courseId: string) {
   const db = await load();
   db.progress[courseId] = { lessons: {} };
   scheduleSave();
-}
-
-function isFiniteNumber(v: unknown): v is number {
-  return typeof v === "number" && Number.isFinite(v) && v >= 0;
 }
