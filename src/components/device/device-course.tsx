@@ -1,6 +1,6 @@
 "use client";
 
-import { FolderOpenIcon, HardDriveIcon, Loader2Icon, LockOpenIcon } from "lucide-react";
+import { FolderOpenIcon, FolderSearchIcon, HardDriveIcon, Loader2Icon, LockOpenIcon } from "lucide-react";
 import Link from "next/link";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -20,10 +20,12 @@ import {
 import {
   type AccessState,
   checkAccess,
-  getDeviceFile,
   getDeviceFileUrl,
+  readDeviceText,
   requestAccess,
+  rescanDeviceCourse,
 } from "@/lib/client/device-files";
+import { isMissingFileError } from "@/lib/errors";
 import { extOf } from "@/lib/files";
 import { flatLessons, locateLesson } from "@/lib/progress";
 import { langFromName, subtitleLabel, toVtt } from "@/lib/subtitles";
@@ -36,12 +38,17 @@ import { useFolderPicker } from "./open-folder";
 function createDeviceSource(record: DeviceCourseRecord): CourseSource {
   const id = record.id;
   return {
+    rescan: async () => {
+      const next = await rescanDeviceCourse(record);
+      // Without a remembered folder (Safari / Firefox) the course page asks for it again.
+      window.location.href = next ? window.location.href : `/device/${id}`;
+    },
     kind: "device",
     courseId: id,
     basePath: `/device/${id}`,
     canConvert: false,
     getUrl: (path) => getDeviceFileUrl(id, path),
-    readText: async (path) => (await getDeviceFile(id, path)).text(),
+    readText: (path) => readDeviceText(id, path),
     mediaPlan: async ({ lessonId, path, kind }) => {
       const src = await getDeviceFileUrl(id, path);
       const lesson = locateLesson(record.course, lessonId)?.lesson;
@@ -49,7 +56,7 @@ function createDeviceSource(record: DeviceCourseRecord): CourseSource {
         lesson && lesson.path === path
           ? await Promise.all(
               lesson.subtitles.map(async (file, i) => {
-                const text = await (await getDeviceFile(id, file)).text();
+                const text = await readDeviceText(id, file);
                 const blob = new Blob([toVtt(text, file)], { type: "text/vtt" });
                 return { label: subtitleLabel(file, i), lang: langFromName(file), src: URL.createObjectURL(blob) };
               }),
@@ -151,7 +158,9 @@ export function useDeviceCourse() {
   return ctx;
 }
 
-type Status = "loading" | "missing" | AccessState;
+type Status = "loading" | "missing" | "folder-missing" | AccessState;
+
+const RESCAN_AFTER_MS = 30_000;
 
 /**
  * Loads a device course from IndexedDB, makes sure this browser can read its
@@ -197,6 +206,32 @@ export function DeviceCourseGate({
     };
   }, [courseId, version]);
 
+  // Pick up added / renamed files automatically when the folder can be re-read without a prompt.
+  useEffect(() => {
+    if (status !== "ready" || !record?.handle || Date.now() - record.scannedAt < RESCAN_AFTER_MS) return;
+    let cancelled = false;
+    rescanDeviceCourse(record)
+      .then((next) => {
+        if (cancelled || !next) return;
+        if (JSON.stringify(next.course) === JSON.stringify(record.course)) return;
+        const before = new Set(flatLessons(record.course).map((l) => l.id));
+        const after = flatLessons(next.course).map((l) => l.id);
+        const added = after.filter((id) => !before.has(id)).length;
+        const removed = before.size - (after.length - added);
+        const parts = [added && `${added} new`, removed && `${removed} removed`].filter(Boolean);
+        toast.success(`Course updated${parts.length ? ` · ${parts.join(", ")}` : ""}`);
+        setState((s) => (s && s.id === courseId ? { ...s, record: next } : s));
+      })
+      .catch((err) => {
+        if (!cancelled && isMissingFileError(err)) {
+          setState((s) => (s && s.id === courseId ? { ...s, status: "folder-missing" } : s));
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [status, record, courseId]);
+
   const { durations, pending } = useDeviceDurations(record, status === "ready");
   const source = useMemo(() => (record ? createDeviceSource(record) : null), [record]);
   const save = useCallback<ProgressSaver>((patches) => void saveDeviceProgress(courseId, patches), [courseId]);
@@ -236,6 +271,18 @@ export function DeviceCourseGate({
         >
           <LockOpenIcon /> Allow access
         </Button>
+      </Notice>
+    );
+  }
+
+  if (status === "folder-missing") {
+    return (
+      <Notice icon={<FolderSearchIcon className="size-6" />} title={`Can't find “${record.folderName}”`}>
+        <p>The folder was moved, renamed or deleted. Choose it again (same folder name) and your progress is kept.</p>
+        <Button onClick={picker.open} disabled={picker.busy}>
+          {picker.busy ? <Loader2Icon className="animate-spin" /> : <FolderOpenIcon />} Choose folder again
+        </Button>
+        {picker.input}
       </Notice>
     );
   }

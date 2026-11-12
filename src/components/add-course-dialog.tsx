@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useState, useTransition } from "react";
 import { toast } from "sonner";
 
-import { addCourseAction } from "@/app/actions";
+import { addCourseAction, relocateCourseAction } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -28,7 +28,15 @@ interface Listing {
   error?: string;
 }
 
-export function AddCourseDialog({ trigger }: { trigger?: React.ReactNode }) {
+export interface RelocateTarget {
+  courseId: string;
+  title: string;
+  /** Where the course used to be; browsing starts next to it. */
+  oldRoot: string;
+}
+
+/** Adds a server course, or (with `relocate`) points an existing one at its new folder. */
+export function AddCourseDialog({ trigger, relocate }: { trigger?: React.ReactNode; relocate?: RelocateTarget }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState("");
@@ -37,18 +45,19 @@ export function AddCourseDialog({ trigger }: { trigger?: React.ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [pending, startTransition] = useTransition();
 
-  const browse = useCallback(async (dir?: string) => {
+  const browse = useCallback(async (dir?: string, quiet = false) => {
     setLoading(true);
     try {
       const res = await fetch(`/api/fs${dir ? `?path=${encodeURIComponent(dir)}` : ""}`);
       const data = (await res.json()) as Listing;
       if (!res.ok) {
-        toast.error(data.error ?? "Cannot open that folder");
-        return;
+        if (!quiet) toast.error(data.error ?? "Cannot open that folder");
+        return false;
       }
       setListing(data);
       setValue(data.path);
       setError(null);
+      return true;
     } finally {
       setLoading(false);
     }
@@ -56,19 +65,31 @@ export function AddCourseDialog({ trigger }: { trigger?: React.ReactNode }) {
 
   const onOpenChange = (next: boolean) => {
     setOpen(next);
-    if (next && !listing) void browse();
+    if (!next || listing) return;
+    if (relocate) {
+      // Start next to where the course used to be, falling back to the home folder.
+      const parent = relocate.oldRoot.replace(/\/[^/]+\/?$/, "") || "/";
+      void browse(parent, true).then((ok) => ok || browse());
+    } else {
+      void browse();
+    }
   };
 
   const submit = (path = value) => {
     setError(null);
     startTransition(async () => {
-      const result = await addCourseAction(path);
+      const result = relocate ? await relocateCourseAction(relocate.courseId, path) : await addCourseAction(path);
       if (result.error || !result.id) {
-        setError(result.error ?? "Could not add that folder.");
+        setError(result.error ?? "Could not use that folder.");
+        return;
+      }
+      setOpen(false);
+      if (relocate) {
+        toast.success("Folder updated · progress kept");
+        router.refresh();
         return;
       }
       toast.success("Course added");
-      setOpen(false);
       router.push(`/course/${result.id}`);
       router.refresh();
     });
@@ -85,9 +106,11 @@ export function AddCourseDialog({ trigger }: { trigger?: React.ReactNode }) {
       </DialogTrigger>
       <DialogContent className="gap-5 sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Add a course folder</DialogTitle>
+          <DialogTitle>{relocate ? "Find the course folder" : "Add a course folder"}</DialogTitle>
           <DialogDescription>
-            Choose the folder that holds the course. Sub-folders become modules, files become lessons.
+            {relocate
+              ? `Choose where “${relocate.title}” lives now. Your progress is kept.`
+              : "Choose the folder that holds the course. Sub-folders become modules, files become lessons."}
           </DialogDescription>
         </DialogHeader>
 

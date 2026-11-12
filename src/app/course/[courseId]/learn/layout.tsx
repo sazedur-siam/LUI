@@ -4,9 +4,10 @@ import { Suspense } from "react";
 
 import { LearnShell } from "@/components/learn/learn-shell";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getCourse } from "@/lib/server/courses";
+import { FolderMissing } from "@/components/folder-missing";
+import { courseFolderExists, getCourse } from "@/lib/server/courses";
 import { getDurations } from "@/lib/server/durations";
-import { getProgress } from "@/lib/server/store";
+import { getCourseRecord, getProgress } from "@/lib/server/store";
 
 export default function LearnLayout({ children, params }: LayoutProps<"/course/[courseId]/learn">) {
   return (
@@ -25,6 +26,15 @@ async function Shell({
 }) {
   const { courseId } = await params;
   await connection();
+  const record = await getCourseRecord(courseId);
+  if (!record) notFound();
+  if (!(await courseFolderExists(record.root))) {
+    return (
+      <div className="flex min-h-svh flex-col">
+        <FolderMissing courseId={record.id} title={record.title} root={record.root} />
+      </div>
+    );
+  }
   const course = await getCourse(courseId);
   if (!course) notFound();
   const [progress, { durations }] = await Promise.all([getProgress(courseId), getDurations(course)]);

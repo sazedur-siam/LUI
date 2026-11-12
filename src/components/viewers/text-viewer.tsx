@@ -14,6 +14,7 @@ import type { FileKind } from "@/lib/types";
 import { CodeBlock } from "./code-block";
 import { FileActions } from "./file-actions";
 import { FileCard } from "./file-card";
+import { MissingFile } from "./missing-file";
 import { useFileText } from "./use-text";
 
 interface Props {
@@ -46,7 +47,9 @@ function Loading() {
 
 export default function TextViewer(props: Props) {
   const { path, name, kind, size, className } = props;
-  const { text, error, loading } = useFileText(path, size);
+  const { text, error, loading, missing } = useFileText(path, size);
+
+  if (missing) return <MissingFile path={path} className={className} />;
 
   if (error === "too-large") {
     return <FileCard {...props} message="This file is too large to preview here." className={className} />;

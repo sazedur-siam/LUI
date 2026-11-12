@@ -73,6 +73,21 @@ export async function addCourse(rootInput: string, title: string): Promise<Cours
   return record;
 }
 
+/** Point an existing course at a new folder location; the id (and so progress) is kept. */
+export async function relocateCourse(id: string, rootInput: string) {
+  if (!serverFilesEnabled()) throw new Error(SERVER_FILES_DISABLED_MESSAGE);
+  const root = path.resolve(rootInput);
+  const stat = await fs.stat(root).catch(() => null);
+  if (!stat?.isDirectory()) throw new Error("That folder does not exist.");
+  const db = await load();
+  const record = db.courses.find((c) => c.id === id);
+  if (!record) throw new Error("Unknown course");
+  const previous = record.root;
+  record.root = root;
+  scheduleSave();
+  return { record, previous };
+}
+
 export async function removeCourse(id: string) {
   const db = await load();
   db.courses = db.courses.filter((c) => c.id !== id);
