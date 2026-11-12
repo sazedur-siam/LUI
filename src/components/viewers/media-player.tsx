@@ -10,11 +10,13 @@ import { AlertTriangleIcon, DownloadIcon, ExternalLinkIcon, Loader2Icon, WandSpa
 import { type CSSProperties, type SyntheticEvent, useCallback, useEffect, useRef, useState } from "react";
 
 import { Bar } from "@/components/progress-visuals";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import type { PlaybackPlan } from "@/lib/types";
-
 import { useCourseSource, useFileUrl } from "@/components/source/course-source";
+import { Button } from "@/components/ui/button";
+import { isMissingFileError } from "@/lib/errors";
+import type { PlaybackPlan } from "@/lib/types";
+import { cn } from "@/lib/utils";
+
+import { MissingFile } from "./missing-file";
 
 export interface MediaPlayerProps {
   lessonId: string;
@@ -41,6 +43,9 @@ const SKIN_STYLE = {
 } as CSSProperties;
 
 type Force = null | "remux" | "transcode";
+
+/** Sentinel error value: the media file is no longer in the course folder. */
+const MISSING = "__missing__";
 
 const MODE_LABEL: Record<PlaybackPlan["mode"], { label: string; color: string; hint: string }> = {
   direct: { label: "Direct play", color: "#26A69A", hint: "Playing the original file" },
@@ -75,7 +80,11 @@ export function MediaPlayer(props: MediaPlayerProps) {
       setResult({ key: reqKey, plan: data, error: remuxPending && data.error ? data.error : null });
       if (remuxPending && !data.error) timer = setTimeout(load, 600);
     };
-    load().catch((err) => !cancelled && setResult({ key: reqKey, plan: null, error: String(err) }));
+    load().catch(
+      (err) =>
+        !cancelled &&
+        setResult({ key: reqKey, plan: null, error: isMissingFileError(err) ? MISSING : err instanceof Error ? err.message : String(err) }),
+    );
     return () => {
       cancelled = true;
       clearTimeout(timer);
@@ -122,6 +131,8 @@ export function MediaPlayer(props: MediaPlayerProps) {
   };
 
   const isAudio = kind === "audio" || (plan != null && !plan.hasVideo);
+
+  if (error === MISSING) return <MissingFile path={filePath} className={cn(isAudio ? "" : "aspect-video", className)} />;
 
   let body: React.ReactNode;
   if (error) {

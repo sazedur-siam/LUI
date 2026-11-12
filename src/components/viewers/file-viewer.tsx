@@ -3,12 +3,13 @@
 import { Loader2Icon } from "lucide-react";
 import dynamic from "next/dynamic";
 
-import { useFileUrl } from "@/components/source/course-source";
+import { useFileAccess } from "@/components/source/course-source";
 import { cn } from "@/lib/utils";
 import type { FileKind } from "@/lib/types";
 
 import { FileActions } from "./file-actions";
 import { FileCard } from "./file-card";
+import { MissingFile } from "./missing-file";
 import type { MediaPlayerProps } from "./media-player";
 
 const loading = () => (
@@ -91,7 +92,8 @@ function FrameHeader({ file }: { file: ViewerFile }) {
 }
 
 function HtmlFrame({ file, className }: { file: ViewerFile; className: string }) {
-  const url = useFileUrl(file.path);
+  const { url, missing } = useFileAccess(file.path, { check: true });
+  if (missing) return <MissingFile path={file.path} className={className} />;
   return (
     <div className={cn("flex flex-col overflow-hidden rounded-2xl border bg-white", className)}>
       <FrameHeader file={file} />
@@ -110,7 +112,8 @@ function HtmlFrame({ file, className }: { file: ViewerFile; className: string })
 }
 
 function ImageFrame({ file, className }: { file: ViewerFile; className: string }) {
-  const url = useFileUrl(file.path);
+  const { url, missing } = useFileAccess(file.path, { check: true });
+  if (missing) return <MissingFile path={file.path} className={className} />;
   return (
     <div className={cn("flex flex-col overflow-hidden rounded-2xl border bg-white", className)}>
       <FrameHeader file={file} />

@@ -86,8 +86,8 @@ export function CourseOverview({
             {menu}
           </div>
           <div className="flex flex-wrap gap-2">
-            <Chip icon={LayersIcon} label={`${course.modules.length} modules`} />
-            <Chip icon={ListVideoIcon} label={`${course.lessonCount} lessons · ${videoCount} videos`} />
+            <Chip icon={LayersIcon} label={plural(course.modules.length, "module")} />
+            <Chip icon={ListVideoIcon} label={`${plural(course.lessonCount, "lesson")} · ${plural(videoCount, "video")}`} />
             {lessons.some((l) => l.kind === "video" || l.kind === "audio") && (
             <Chip
               icon={ClockIcon}
@@ -182,6 +182,10 @@ export function CourseOverview({
       </Tabs>
     </div>
   );
+}
+
+function plural(n: number, word: string) {
+  return `${n} ${word}${n === 1 ? "" : "s"}`;
 }
 
 function Chip({ icon: Icon, label }: { icon: LucideIcon; label: string }) {

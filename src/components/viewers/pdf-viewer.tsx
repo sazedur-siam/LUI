@@ -8,10 +8,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 
 import { Button } from "@/components/ui/button";
-import { useFileUrl } from "@/components/source/course-source";
+import { useFileAccess } from "@/components/source/course-source";
 import { cn } from "@/lib/utils";
 
 import { FileActions } from "./file-actions";
+import { MissingFile } from "./missing-file";
 
 pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
 
@@ -23,7 +24,7 @@ export interface PdfViewerProps {
 }
 
 export default function PdfViewer({ path, initialPage, onPage, className }: PdfViewerProps) {
-  const url = useFileUrl(path);
+  const { url, missing } = useFileAccess(path, { check: true });
   const scroller = useRef<HTMLDivElement>(null);
   const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [numPages, setNumPages] = useState(0);
@@ -83,6 +84,8 @@ export default function PdfViewer({ path, initialPage, onPage, className }: PdfV
       onPage?.(page, numPages);
     }
   };
+
+  if (missing) return <MissingFile path={path} className={className} />;
 
   const pageWidth = Math.max(240, width * zoom);
   const placeholderHeight = Math.round(pageWidth * 1.294);

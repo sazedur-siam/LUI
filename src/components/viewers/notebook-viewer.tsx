@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 
 import { CodeBlock } from "./code-block";
 import { FileActions } from "./file-actions";
+import { MissingFile } from "./missing-file";
 import { useFileText } from "./use-text";
 
 type Source = string | string[];
@@ -47,7 +48,7 @@ export default function NotebookViewer({
   size: number;
   className?: string;
 }) {
-  const { text, error, loading } = useFileText(path, size, 60 * 1024 * 1024);
+  const { text, error, loading, missing } = useFileText(path, size, 60 * 1024 * 1024);
   const notebook = useMemo(() => {
     if (!text) return null;
     try {
@@ -59,6 +60,8 @@ export default function NotebookViewer({
 
   const lang = langForName(notebook?.metadata?.language_info?.name ?? notebook?.metadata?.kernelspec?.language ?? "python");
 
+
+  if (missing) return <MissingFile path={path} className={className} />;
   return (
     <div className={cn("flex flex-col overflow-hidden rounded-2xl border bg-white", className)}>
       <div className="flex items-center justify-between border-b px-4 py-1.5">

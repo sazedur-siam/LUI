@@ -6,8 +6,9 @@ import { Suspense } from "react";
 import { AppHeader } from "@/components/app-header";
 import { CourseMenu } from "@/components/course-menu";
 import { CourseOverview, OverviewSkeleton } from "@/components/course-overview";
+import { FolderMissing } from "@/components/folder-missing";
 import { ServerSourceProvider } from "@/components/source/course-source";
-import { getCourse } from "@/lib/server/courses";
+import { courseFolderExists, getCourse } from "@/lib/server/courses";
 import { getDurations } from "@/lib/server/durations";
 import { getCourseRecord, getProgress } from "@/lib/server/store";
 
@@ -33,6 +34,11 @@ export default function CoursePage({ params }: PageProps<"/course/[courseId]">) 
 async function Overview({ params }: { params: PageProps<"/course/[courseId]">["params"] }) {
   const { courseId } = await params;
   await connection();
+  const record = await getCourseRecord(courseId);
+  if (!record) notFound();
+  if (!(await courseFolderExists(record.root))) {
+    return <FolderMissing courseId={record.id} title={record.title} root={record.root} />;
+  }
   const course = await getCourse(courseId);
   if (!course) notFound();
   const [progress, { durations, pending }] = await Promise.all([getProgress(courseId), getDurations(course)]);

@@ -1,6 +1,7 @@
 "use client";
 
 import { buildCourse, cyrb53, type FileEntry, humanize, isHidden } from "@/lib/course-builder";
+import { isVanishedFileException, MissingFileError } from "@/lib/errors";
 
 import { type DeviceCourseRecord, getDeviceCourse, putDeviceCourse } from "./device-db";
 
@@ -45,12 +46,30 @@ export async function getDeviceFile(courseId: string, path: string): Promise<Fil
   if (cached) return cached;
   const handle = handles.get(courseId);
   if (!handle) throw new Error("Folder access is needed to open this file.");
-  const parts = path.split("/");
-  let dir: FileSystemDirectoryHandle = handle;
-  for (const part of parts.slice(0, -1)) dir = await dir.getDirectoryHandle(part);
-  const file = await (await dir.getFileHandle(parts[parts.length - 1])).getFile();
-  fileMap(courseId).set(path, file);
-  return file;
+  try {
+    const parts = path.split("/");
+    let dir: FileSystemDirectoryHandle = handle;
+    for (const part of parts.slice(0, -1)) dir = await dir.getDirectoryHandle(part);
+    const file = await (await dir.getFileHandle(parts[parts.length - 1])).getFile();
+    fileMap(courseId).set(path, file);
+    return file;
+  } catch (err) {
+    if (isVanishedFileException(err) || (err instanceof TypeError && /not found/i.test(err.message))) {
+      throw new MissingFileError(path);
+    }
+    throw err;
+  }
+}
+
+/** Read a device file as text, reporting vanished files as MissingFileError. */
+export async function readDeviceText(courseId: string, path: string) {
+  const file = await getDeviceFile(courseId, path);
+  try {
+    return await file.text();
+  } catch (err) {
+    if (isVanishedFileException(err)) throw new MissingFileError(path);
+    throw err;
+  }
 }
 
 /** Object URL for a device file (cached for the session; File-backed, so cheap). */
@@ -90,14 +109,21 @@ async function saveScan(opts: {
   const course = buildCourse({ id, title, root: opts.folderName, files: opts.entries, hash: cyrb53 });
   if (course.lessonCount === 0) throw new Error("No lessons found in that folder.");
 
-  files.set(id, opts.map);
-  if (opts.handle) handles.set(id, opts.handle);
+  // Keep object URLs for unchanged files (a video may be playing during a background rescan);
+  // drop the ones whose file disappeared or changed.
+  const previous = files.get(id);
   for (const [key, url] of urls) {
-    if (key.startsWith(`${id}|`)) {
+    if (!key.startsWith(`${id}|`)) continue;
+    const path = key.slice(id.length + 1);
+    const before = previous?.get(path);
+    const after = opts.map.get(path);
+    if (!after || (before && (before.size !== after.size || before.lastModified !== after.lastModified))) {
       URL.revokeObjectURL(url);
       urls.delete(key);
     }
   }
+  files.set(id, opts.map);
+  if (opts.handle) handles.set(id, opts.handle);
 
   const existing = await getDeviceCourse(id);
   const record: DeviceCourseRecord = {
@@ -180,6 +206,12 @@ export async function requestAccess(record: DeviceCourseRecord): Promise<boolean
 /** Re-read a course's folder (after files were added or renamed). */
 export async function rescanDeviceCourse(record: DeviceCourseRecord) {
   const handle = (handles.get(record.id) ?? record.handle) as DirHandle | undefined;
-  if (handle) return scanHandle(handle);
-  return null;
+  if (!handle) return null;
+  try {
+    return await scanHandle(handle);
+  } catch (err) {
+    // The picked folder itself was moved, renamed or deleted.
+    if (isVanishedFileException(err)) throw new MissingFileError(record.folderName);
+    throw err;
+  }
 }

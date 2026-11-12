@@ -1,5 +1,7 @@
 import "server-only";
 
+import fs from "node:fs/promises";
+
 import type { Course, Lesson, Module } from "@/lib/types";
 
 import { scanCourse } from "./scanner";
@@ -21,6 +23,12 @@ export async function getCourse(id: string, opts?: { fresh?: boolean }): Promise
   cache.set(id, { at: Date.now(), course });
   course.catch(() => cache.delete(id));
   return course;
+}
+
+/** Whether a course's folder still exists where the library expects it. */
+export async function courseFolderExists(root: string) {
+  const stat = await fs.stat(root).catch(() => null);
+  return !!stat?.isDirectory();
 }
 
 export function invalidateCourse(id: string) {
