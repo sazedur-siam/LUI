@@ -48,3 +48,6 @@ next-env.d.ts
 
 # local test artifacts
 /.playwright-mcp
+
+# local planning notes (feature specs)
+/docs
