@@ -2,15 +2,24 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
+import type { ProgressPatch as Patch } from "@/lib/progress";
 import type { CourseProgress, LessonProgress } from "@/lib/types";
 
-interface Patch {
-  lessonId: string;
-  completed?: boolean;
-  position?: number;
-  duration?: number;
-  page?: number;
-  opened?: boolean;
+/** Persists queued progress patches. `urgent` is true when the page is being hidden. */
+export type ProgressSaver = (patches: Patch[], urgent: boolean) => void;
+
+function serverSaver(courseId: string): ProgressSaver {
+  return (patches, urgent) => {
+    const url = `/api/progress/${courseId}`;
+    const body = JSON.stringify(patches);
+    if (urgent && navigator.sendBeacon) {
+      navigator.sendBeacon(url, new Blob([body], { type: "application/json" }));
+      return;
+    }
+    void fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body, keepalive: true }).catch(
+      () => {},
+    );
+  };
 }
 
 interface ProgressApi {
@@ -34,10 +43,13 @@ export function useProgress() {
 export function ProgressProvider({
   courseId,
   initial,
+  save,
   children,
 }: {
   courseId: string;
   initial: CourseProgress;
+  /** Defaults to the server progress API (local mode). */
+  save?: ProgressSaver;
   children: React.ReactNode;
 }) {
   const [lessons, setLessons] = useState(initial.lessons);
@@ -47,20 +59,9 @@ export function ProgressProvider({
   const send = useCallback(
     (patches: Patch[], beacon = false) => {
       if (patches.length === 0) return;
-      const url = `/api/progress/${courseId}`;
-      const body = JSON.stringify(patches);
-      if (beacon && navigator.sendBeacon) {
-        navigator.sendBeacon(url, new Blob([body], { type: "application/json" }));
-        return;
-      }
-      void fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body,
-        keepalive: true,
-      }).catch(() => {});
+      (save ?? serverSaver(courseId))(patches, beacon);
     },
-    [courseId],
+    [courseId, save],
   );
 
   const flush = useCallback(

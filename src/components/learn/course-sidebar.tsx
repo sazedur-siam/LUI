@@ -27,7 +27,17 @@ import type { Course, Lesson } from "@/lib/types";
 
 import { useProgress } from "./progress-context";
 
-export function CourseSidebar({ course, durations }: { course: Course; durations: Record<string, number> }) {
+export function CourseSidebar({
+  course,
+  durations,
+  basePath,
+  headerSlot,
+}: {
+  course: Course;
+  durations: Record<string, number>;
+  basePath: string;
+  headerSlot?: React.ReactNode;
+}) {
   const params = useParams<{ lessonId?: string }>();
   const currentId = params.lessonId;
   const { lessons: progress } = useProgress();
@@ -66,7 +76,7 @@ export function CourseSidebar({ course, durations }: { course: Course; durations
   const lessonRow = (l: Lesson) => (
     <LessonRow
       key={l.id}
-      courseId={course.id}
+      basePath={basePath}
       lesson={l}
       active={l.id === currentId}
       completed={!!progress[l.id]?.completed}
@@ -79,12 +89,13 @@ export function CourseSidebar({ course, durations }: { course: Course; durations
     <Sidebar className="border-r">
       <SidebarHeader className="gap-3 border-b px-4 pb-4 pt-3">
         <Link
-          href={`/course/${course.id}`}
+          href={basePath}
           className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
         >
           <ArrowLeftIcon className="size-3.5" /> Course overview
         </Link>
         <p className="line-clamp-2 text-sm font-medium leading-snug">{course.title}</p>
+        {headerSlot}
         <div className="space-y-1.5">
           <Bar value={stats.percent} />
           <p className="flex justify-between text-[11px] text-muted-foreground">
@@ -194,14 +205,14 @@ export function CourseSidebar({ course, durations }: { course: Course; durations
 }
 
 function LessonRow({
-  courseId,
+  basePath,
   lesson,
   active,
   completed,
   duration,
   activeRef,
 }: {
-  courseId: string;
+  basePath: string;
   lesson: Lesson;
   active: boolean;
   completed: boolean;
@@ -212,7 +223,7 @@ function LessonRow({
     <li>
       <Link
         ref={activeRef}
-        href={`/course/${courseId}/learn/${lesson.id}`}
+        href={`${basePath}/learn/${lesson.id}`}
         className={cn(
           "flex items-start gap-2 rounded-md px-2 py-1.5 text-[13px] leading-snug transition-colors hover:bg-[#e3f2fd]/70",
           active && "bg-[#e3f2fd] text-[#1565c0]",

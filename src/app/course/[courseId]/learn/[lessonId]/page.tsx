@@ -24,7 +24,6 @@ async function Lesson({ params }: { params: PageProps<"/course/[courseId]/learn/
   return (
     <LessonView
       key={lesson.id}
-      courseId={courseId}
       lesson={lesson}
       moduleTitle={module.title}
       moduleNumber={module.number}

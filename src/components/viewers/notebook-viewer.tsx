@@ -39,17 +39,15 @@ const join = (s: Source | undefined) => (Array.isArray(s) ? s.join("") : (s ?? "
 const stripAnsi = (s: string) => s.replace(/\u001b\[[0-9;]*m/g, "");
 
 export default function NotebookViewer({
-  courseId,
   path,
   size,
   className,
 }: {
-  courseId: string;
   path: string;
   size: number;
   className?: string;
 }) {
-  const { text, error, loading } = useFileText(courseId, path, size, 60 * 1024 * 1024);
+  const { text, error, loading } = useFileText(path, size, 60 * 1024 * 1024);
   const notebook = useMemo(() => {
     if (!text) return null;
     try {
@@ -67,7 +65,7 @@ export default function NotebookViewer({
         <span className="text-xs text-muted-foreground">
           Jupyter notebook{notebook ? ` · ${notebook.cells.length} cells` : ""}
         </span>
-        <FileActions courseId={courseId} path={path} newTab={false} />
+        <FileActions path={path} newTab={false} />
       </div>
       <div className="scrollbar-thin flex-1 overflow-auto">
         {loading && (

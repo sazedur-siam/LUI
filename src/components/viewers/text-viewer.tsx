@@ -17,7 +17,6 @@ import { FileCard } from "./file-card";
 import { useFileText } from "./use-text";
 
 interface Props {
-  courseId: string;
   path: string;
   name: string;
   kind: FileKind;
@@ -25,12 +24,12 @@ interface Props {
   className?: string;
 }
 
-function Frame({ courseId, path, label, children, className }: Omit<Props, "name" | "kind" | "size"> & { label: string; children: React.ReactNode }) {
+function Frame({ path, label, children, className }: Omit<Props, "name" | "kind" | "size"> & { label: string; children: React.ReactNode }) {
   return (
     <div className={cn("flex flex-col overflow-hidden rounded-2xl border bg-white", className)}>
       <div className="flex items-center justify-between border-b px-4 py-1.5">
         <span className="text-xs text-muted-foreground">{label}</span>
-        <FileActions courseId={courseId} path={path} />
+        <FileActions path={path} />
       </div>
       <div className="scrollbar-thin flex-1 overflow-auto">{children}</div>
     </div>
@@ -46,8 +45,8 @@ function Loading() {
 }
 
 export default function TextViewer(props: Props) {
-  const { courseId, path, name, kind, size, className } = props;
-  const { text, error, loading } = useFileText(courseId, path, size);
+  const { path, name, kind, size, className } = props;
+  const { text, error, loading } = useFileText(path, size);
 
   if (error === "too-large") {
     return <FileCard {...props} message="This file is too large to preview here." className={className} />;
@@ -73,7 +72,7 @@ export default function TextViewer(props: Props) {
   }
 
   return (
-    <Frame courseId={courseId} path={path} label={name} className={className}>
+    <Frame path={path} label={name} className={className}>
       {content}
     </Frame>
   );

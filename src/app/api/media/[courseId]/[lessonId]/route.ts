@@ -13,6 +13,7 @@ import {
   startRemux,
 } from "@/lib/server/media";
 import { resolveInside } from "@/lib/server/paths";
+import { langFromName, subtitleLabel } from "@/lib/subtitles";
 import type { PlaybackPlan, SubtitleTrack } from "@/lib/types";
 
 /**
@@ -123,21 +124,4 @@ export async function GET(request: Request, ctx: RouteContext<"/api/media/[cours
     type: "",
   };
   return Response.json(plan);
-}
-
-function langFromName(file: string) {
-  const m = /\.([a-z]{2,3})(?:-[a-z]{2})?\.(?:srt|vtt)$/i.exec(file);
-  return m?.[1]?.toLowerCase();
-}
-
-function subtitleLabel(file: string, i: number) {
-  const lang = langFromName(file);
-  if (lang) {
-    try {
-      return new Intl.DisplayNames(["en"], { type: "language" }).of(lang) ?? lang.toUpperCase();
-    } catch {
-      return lang.toUpperCase();
-    }
-  }
-  return i === 0 ? "Subtitles" : `Subtitles ${i + 1}`;
 }

@@ -6,19 +6,17 @@ import "@videojs/react/audio/neutral-skin.css";
 import { Audio, AudioPlayer, NeutralAudioSkin } from "@videojs/react/audio";
 import { HlsJsVideo } from "@videojs/react/media/hlsjs-video";
 import { NeutralVideoSkin, Video, VideoPlayer } from "@videojs/react/video";
-import { AlertTriangleIcon, ExternalLinkIcon, Loader2Icon, WandSparklesIcon } from "lucide-react";
+import { AlertTriangleIcon, DownloadIcon, ExternalLinkIcon, Loader2Icon, WandSparklesIcon } from "lucide-react";
 import { type CSSProperties, type SyntheticEvent, useCallback, useEffect, useRef, useState } from "react";
 
 import { Bar } from "@/components/progress-visuals";
 import { Button } from "@/components/ui/button";
-import { browserCaps } from "@/lib/client/caps";
 import { cn } from "@/lib/utils";
 import type { PlaybackPlan } from "@/lib/types";
 
-import { openExternally } from "./file-actions";
+import { useCourseSource, useFileUrl } from "@/components/source/course-source";
 
 export interface MediaPlayerProps {
-  courseId: string;
   lessonId: string;
   /** Course-relative path when playing a lesson resource instead of the lesson itself. */
   resourcePath?: string;
@@ -51,7 +49,9 @@ const MODE_LABEL: Record<PlaybackPlan["mode"], { label: string; color: string; h
 };
 
 export function MediaPlayer(props: MediaPlayerProps) {
-  const { courseId, lessonId, resourcePath, filePath, kind, autoPlay, overlay, className } = props;
+  const { lessonId, resourcePath, filePath, kind, autoPlay, overlay, className } = props;
+  const source = useCourseSource();
+  const courseId = source.courseId;
   const [force, setForce] = useState<Force>(null);
 
   // Results are keyed by request so a new lesson / fallback never shows a stale plan.
@@ -69,16 +69,8 @@ export function MediaPlayer(props: MediaPlayerProps) {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const load = async () => {
-      const qs = new URLSearchParams({ caps: browserCaps() });
-      if (force) qs.set("force", force);
-      if (resourcePath) qs.set("file", resourcePath);
-      const res = await fetch(`/api/media/${courseId}/${lessonId}?${qs}`);
-      const data = (await res.json()) as PlaybackPlan & { error?: string };
+      const data = await source.mediaPlan({ lessonId, path: filePath, resourcePath, kind, force });
       if (cancelled) return;
-      if (!res.ok) {
-        setResult({ key: reqKey, plan: null, error: data.error ?? "Could not load this media file." });
-        return;
-      }
       const remuxPending = data.mode === "remux" && !data.ready;
       setResult({ key: reqKey, plan: data, error: remuxPending && data.error ? data.error : null });
       if (remuxPending && !data.error) timer = setTimeout(load, 600);
@@ -88,11 +80,15 @@ export function MediaPlayer(props: MediaPlayerProps) {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [courseId, lessonId, resourcePath, force, reqKey]);
+  }, [source, lessonId, filePath, resourcePath, kind, force, reqKey]);
 
   const fallback = () => {
     if (!plan) return;
-    if (plan.mode === "direct") setForce("remux");
+    if (!source.canConvert) {
+      setError(
+        `This browser can't play ${plan.summary} files. Download it, or run LUI on your computer, which converts it automatically.`,
+      );
+    } else if (plan.mode === "direct") setForce("remux");
     else if (plan.mode === "remux" && plan.hasVideo) setForce("transcode");
     else setError("This file could not be played in the browser.");
   };
@@ -134,14 +130,18 @@ export function MediaPlayer(props: MediaPlayerProps) {
         <AlertTriangleIcon className="size-7 text-[#FFA000]" />
         <p className="max-w-md text-center text-sm text-[#37474F]">{error}</p>
         <div className="flex flex-wrap justify-center gap-2">
-          {plan?.mode !== "transcode" && plan?.hasVideo !== false && (
+          {source.canConvert && plan?.mode !== "transcode" && plan?.hasVideo !== false && (
             <Button size="sm" onClick={() => setForce("transcode")}>
               <WandSparklesIcon /> Try converting
             </Button>
           )}
-          <Button size="sm" variant="outline" onClick={() => openExternally(courseId, filePath, "open")}>
-            <ExternalLinkIcon /> Open in default app
-          </Button>
+          {source.openExternally ? (
+            <Button size="sm" variant="outline" onClick={() => source.openExternally?.(filePath, "open")}>
+              <ExternalLinkIcon /> Open in default app
+            </Button>
+          ) : (
+            <DownloadButton path={filePath} />
+          )}
         </div>
       </StatusBox>
     );
@@ -208,7 +208,7 @@ export function MediaPlayer(props: MediaPlayerProps) {
           </span>
           <span className="text-border">•</span>
           <span>{plan.summary}</span>
-          {plan.mode === "direct" && plan.hasVideo && (
+          {source.canConvert && plan.mode === "direct" && plan.hasVideo && (
             <button
               type="button"
               className="ml-auto hover:text-foreground"
@@ -224,11 +224,23 @@ export function MediaPlayer(props: MediaPlayerProps) {
   );
 }
 
+function DownloadButton({ path }: { path: string }) {
+  const url = useFileUrl(path, { download: true });
+  if (!url) return null;
+  return (
+    <Button size="sm" variant="outline" asChild>
+      <a href={url} download={path.split("/").pop()}>
+        <DownloadIcon /> Download
+      </a>
+    </Button>
+  );
+}
+
 function StatusBox({ children, isAudio }: { children: React.ReactNode; isAudio: boolean }) {
   return (
     <div
       className={cn(
-        "flex w-full flex-col items-center justify-center gap-3 rounded-2xl border border-[#d6e6f5] bg-gradient-to-b from-[#f5faff] to-[#e3f2fd] p-6",
+        "flex w-full flex-col items-center justify-center gap-3 rounded-2xl border border-[#d6e6f5] bg-linear-to-b from-[#f5faff] to-[#e3f2fd] p-6",
         isAudio ? "min-h-40" : "aspect-video",
       )}
     >

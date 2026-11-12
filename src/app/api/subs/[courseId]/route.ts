@@ -4,14 +4,7 @@ import path from "node:path";
 import { findLesson, getCourse } from "@/lib/server/courses";
 import { FFMPEG, run } from "@/lib/server/ffmpeg";
 import { CACHE_DIR, ensureDir, hashId, resolveInside } from "@/lib/server/paths";
-
-function srtToVtt(srt: string) {
-  const body = srt
-    .replace(/^﻿/, "")
-    .replace(/\r\n?/g, "\n")
-    .replace(/(\d{1,2}:\d{2}:\d{2}),(\d{3})/g, "$1.$2");
-  return `WEBVTT\n\n${body}`;
-}
+import { toVtt } from "@/lib/subtitles";
 
 function vtt(text: string) {
   return new Response(text, {
@@ -32,7 +25,7 @@ export async function GET(request: Request, ctx: RouteContext<"/api/subs/[course
     const rel = found.lesson.subtitles[Number(side)];
     if (!rel) return new Response("Not found", { status: 404 });
     const text = await fs.readFile(await resolveInside(course.root, rel), "utf8");
-    return vtt(rel.toLowerCase().endsWith(".vtt") ? text : srtToVtt(text));
+    return vtt(toVtt(text, rel));
   }
 
   const stream = Number(url.searchParams.get("stream"));
