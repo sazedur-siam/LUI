@@ -1,6 +1,6 @@
 "use client";
 
-import { EllipsisVerticalIcon, RefreshCwIcon, RotateCcwIcon, Trash2Icon } from "lucide-react";
+import { DownloadIcon, EllipsisVerticalIcon, RefreshCwIcon, RotateCcwIcon, Trash2Icon, UploadIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { toast } from "sonner";
@@ -13,8 +13,22 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { type DeviceCourseRecord, deleteDeviceCourse, resetDeviceProgress } from "@/lib/client/device-db";
+import {
+  type DeviceCourseRecord,
+  deleteDeviceCourse,
+  getDeviceProgress,
+  replaceDeviceProgress,
+  resetDeviceProgress,
+} from "@/lib/client/device-db";
 import { rescanDeviceCourse } from "@/lib/client/device-files";
+import { downloadJson, pickJsonFile } from "@/lib/client/file-transfer";
+import {
+  backupFileName,
+  describeSummary,
+  exportProgress,
+  mergeProgress,
+  parseProgressFile,
+} from "@/lib/progress-transfer";
 
 import { useFolderPicker } from "./open-folder";
 
@@ -68,6 +82,39 @@ export function DeviceCourseMenu({ record, afterRemove }: { record: DeviceCourse
             }}
           >
             <RotateCcwIcon /> Reset progress
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onSelect={() =>
+              startTransition(async () => {
+                const progress = await getDeviceProgress(record.id);
+                downloadJson(exportProgress(record.course, progress, record.folderName), backupFileName(record.title));
+                toast.success("Progress exported");
+              })
+            }
+          >
+            <DownloadIcon /> Export progress
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={async () => {
+              // Open the file picker straight from the click, then do the async work.
+              const text = await pickJsonFile();
+              if (!text) return;
+              startTransition(async () => {
+                try {
+                  const file = parseProgressFile(text);
+                  const { merged, summary } = mergeProgress(record.course, await getDeviceProgress(record.id), file);
+                  if (!confirm(describeSummary(file, summary))) return;
+                  await replaceDeviceProgress(record.id, merged);
+                  toast.success("Progress imported");
+                  window.location.reload();
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Could not read that file.");
+                }
+              });
+            }}
+          >
+            <UploadIcon /> Import progress…
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem

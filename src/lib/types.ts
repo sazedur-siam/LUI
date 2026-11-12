@@ -70,6 +70,8 @@ export interface LessonProgress {
   duration?: number;
   /** Last page viewed (PDF). */
   page?: number;
+  /** Personal notes; may contain [m:ss] timestamps. */
+  notes?: string;
   updatedAt: number;
 }
 
