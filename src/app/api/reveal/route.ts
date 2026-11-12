@@ -1,11 +1,13 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
 
+import { SERVER_FILES_DISABLED_MESSAGE, serverFilesEnabled } from "@/lib/server/mode";
 import { getCourseRecord } from "@/lib/server/store";
 import { resolveInside } from "@/lib/server/paths";
 
 /** Opens a course file with the default app, or reveals it in Finder / Explorer. */
 export async function POST(request: Request) {
+  if (!serverFilesEnabled()) return Response.json({ error: SERVER_FILES_DISABLED_MESSAGE }, { status: 403 });
   const { courseId, path: rel, action } = (await request.json().catch(() => ({}))) as {
     courseId?: string;
     path?: string;
