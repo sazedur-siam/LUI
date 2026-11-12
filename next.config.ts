@@ -1,9 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
   cacheComponents: true,
   partialPrefetching: true,
+  // Resolve the bundled ffmpeg/ffprobe binaries from node_modules at runtime.
+  serverExternalPackages: ["ffmpeg-static", "ffprobe-static"],
   turbopack: {
     rules: {
       "*.css": {

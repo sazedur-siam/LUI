@@ -1,26 +1,118 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@plugin "@tailwindcss/typography";
+
+:root {
+  /* White + light blue, Material Design (Blue / Light Blue / Blue Grey). */
+  --background: #ffffff;
+  --foreground: #263238; /* Blue Grey 900 */
+  --card: #ffffff;
+  --card-foreground: #263238;
+  --popover: #ffffff;
+  --popover-foreground: #263238;
+  --primary: #1e88e5; /* Blue 600 */
+  --primary-foreground: #ffffff;
+  --secondary: #e3f2fd; /* Blue 50 */
+  --secondary-foreground: #1565c0; /* Blue 800 */
+  --muted: #f1f7fd;
+  --muted-foreground: #607d8b; /* Blue Grey 500 */
+  --accent: #e3f2fd;
+  --accent-foreground: #1565c0;
+  --destructive: #e53935;
+  --success: #26a69a; /* Teal 400 */
+  --warning: #ffa000;
+  --border: #e1ecf7;
+  --input: #d6e6f5;
+  --ring: #90caf9; /* Blue 200 */
+  --chart-1: #1e88e5;
+  --chart-2: #039be5;
+  --chart-3: #00acc1;
+  --chart-4: #5c6bc0;
+  --chart-5: #26a69a;
+  --radius: 0.75rem;
+  --sidebar: #f7fbff;
+  --sidebar-foreground: #263238;
+  --sidebar-primary: #1e88e5;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e3f2fd;
+  --sidebar-accent-foreground: #1565c0;
+  --sidebar-border: #e1ecf7;
+  --sidebar-ring: #90caf9;
+  color-scheme: light;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  button:not(:disabled), [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  html {
+    @apply font-sans;
   }
 }
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer utilities {
+  .tint {
+    /* Pair with style={{ "--c": hex }} to get a soft Material tint. */
+    background-color: color-mix(in oklab, var(--c) 10%, white);
+    color: color-mix(in oklab, var(--c) 80%, #263238);
+  }
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: #cfe2f5 transparent;
+  }
 }
