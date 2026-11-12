@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# app data (progress, media cache)
+/.data
+
+# generated
+/public/pdf.worker.min.mjs
+
+# local test artifacts
+/.playwright-mcp
