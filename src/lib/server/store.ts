@@ -110,6 +110,13 @@ export async function updateProgress(courseId: string, patch: ProgressPatch) {
   return next;
 }
 
+export async function replaceProgress(courseId: string, progress: CourseProgress) {
+  const db = await load();
+  if (!db.courses.some((c) => c.id === courseId)) throw new Error("Unknown course");
+  db.progress[courseId] = progress;
+  scheduleSave();
+}
+
 export async function resetProgress(courseId: string) {
   const db = await load();
   db.progress[courseId] = { lessons: {} };

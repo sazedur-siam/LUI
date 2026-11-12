@@ -1,11 +1,17 @@
 "use client";
 
-import { EllipsisVerticalIcon, RefreshCwIcon, RotateCcwIcon, Trash2Icon } from "lucide-react";
+import { DownloadIcon, EllipsisVerticalIcon, RefreshCwIcon, RotateCcwIcon, Trash2Icon, UploadIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { toast } from "sonner";
 
-import { removeCourseAction, rescanCourseAction, resetProgressAction } from "@/app/actions";
+import {
+  exportProgressAction,
+  importProgressAction,
+  removeCourseAction,
+  rescanCourseAction,
+  resetProgressAction,
+} from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -14,6 +20,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { downloadJson, pickJsonFile } from "@/lib/client/file-transfer";
+import { backupFileName, describeSummary } from "@/lib/progress-transfer";
 
 export function CourseMenu({ courseId, title, afterRemove }: { courseId: string; title: string; afterRemove?: string }) {
   const router = useRouter();
@@ -26,7 +34,7 @@ export function CourseMenu({ courseId, title, afterRemove }: { courseId: string;
           <EllipsisVerticalIcon />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48">
+      <DropdownMenuContent align="end" className="w-52">
         <DropdownMenuItem
           onSelect={() =>
             startTransition(async () => {
@@ -49,6 +57,37 @@ export function CourseMenu({ courseId, title, afterRemove }: { courseId: string;
           }}
         >
           <RotateCcwIcon /> Reset progress
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onSelect={() =>
+            startTransition(async () => {
+              const result = await exportProgressAction(courseId);
+              if (!result.file) return void toast.error(result.error ?? "Could not export progress.");
+              downloadJson(result.file, backupFileName(title));
+              toast.success("Progress exported");
+            })
+          }
+        >
+          <DownloadIcon /> Export progress
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onSelect={async () => {
+            // Open the file picker straight from the click, then do the async work.
+            const text = await pickJsonFile();
+            if (!text) return;
+            startTransition(async () => {
+              const preview = await importProgressAction(courseId, text, false);
+              if (!preview.file || !preview.summary) return void toast.error(preview.error ?? "Could not read that file.");
+              if (!confirm(describeSummary(preview.file, preview.summary))) return;
+              const result = await importProgressAction(courseId, text, true);
+              if (result.error) return void toast.error(result.error);
+              toast.success("Progress imported");
+              router.refresh();
+            });
+          }}
+        >
+          <UploadIcon /> Import progress…
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem

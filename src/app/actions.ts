@@ -5,7 +5,15 @@ import path from "node:path";
 
 import { getCourse, invalidateCourse } from "@/lib/server/courses";
 import { courseTitleFromPath } from "@/lib/server/scanner";
-import { addCourse, relocateCourse, removeCourse, resetProgress } from "@/lib/server/store";
+import { exportProgress, type MergeSummary, mergeProgress, parseProgressFile, type ProgressFile } from "@/lib/progress-transfer";
+import {
+  addCourse,
+  getProgress,
+  relocateCourse,
+  removeCourse,
+  replaceProgress,
+  resetProgress,
+} from "@/lib/server/store";
 
 export async function addCourseAction(rawPath: string): Promise<{ id?: string; error?: string }> {
   const input = rawPath.trim().replace(/^["']|["']$/g, "");
@@ -59,4 +67,28 @@ export async function rescanCourseAction(id: string) {
 
 export async function resetProgressAction(id: string) {
   await resetProgress(id);
+}
+
+export async function exportProgressAction(id: string): Promise<{ file?: ProgressFile; error?: string }> {
+  const course = await getCourse(id);
+  if (!course) return { error: "Course not found." };
+  return { file: exportProgress(course, await getProgress(id), path.basename(course.root)) };
+}
+
+/** Merge a backup into a local course. With `apply: false` it only reports what would change. */
+export async function importProgressAction(
+  id: string,
+  text: string,
+  apply: boolean,
+): Promise<{ summary?: MergeSummary; file?: ProgressFile; error?: string }> {
+  try {
+    const course = await getCourse(id);
+    if (!course) return { error: "Course not found." };
+    const file = parseProgressFile(text);
+    const { merged, summary } = mergeProgress(course, await getProgress(id), file);
+    if (apply) await replaceProgress(id, merged);
+    return { summary, file };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err) };
+  }
 }

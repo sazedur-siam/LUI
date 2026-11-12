@@ -107,6 +107,13 @@ export async function getDeviceProgress(id: string): Promise<CourseProgress> {
   return ((await wrap(s.get(id))) as CourseProgress | undefined) ?? { lessons: {} };
 }
 
+export async function replaceDeviceProgress(id: string, progress: CourseProgress) {
+  const { tx, store: s } = await store(PROGRESS, "readwrite");
+  s.put(progress, id);
+  await done(tx);
+  notify();
+}
+
 export async function resetDeviceProgress(id: string) {
   const { tx, store: s } = await store(PROGRESS, "readwrite");
   s.put({ lessons: {} } satisfies CourseProgress, id);
