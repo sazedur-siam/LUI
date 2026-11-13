@@ -42,3 +42,33 @@ export function useLocalPref(key: string, fallback: boolean) {
   );
   return [value, set] as const;
 }
+
+function readNumber(key: string, fallback: number) {
+  try {
+    const v = Number(localStorage.getItem(key));
+    return localStorage.getItem(key) == null || !Number.isFinite(v) ? fallback : v;
+  } catch {
+    return fallback;
+  }
+}
+
+/** A numeric preference stored in localStorage (e.g. playback speed), safe for server rendering. */
+export function useLocalNumber(key: string, fallback: number) {
+  const value = useSyncExternalStore(
+    subscribe,
+    () => readNumber(key, fallback),
+    () => fallback,
+  );
+  const set = useCallback(
+    (next: number) => {
+      try {
+        localStorage.setItem(key, String(next));
+      } catch {
+        // Storage unavailable; the value just won't persist.
+      }
+      window.dispatchEvent(new Event(EVENT));
+    },
+    [key],
+  );
+  return [value, set] as const;
+}
