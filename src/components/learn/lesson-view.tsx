@@ -2,7 +2,7 @@
 
 import { ArrowRightIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, PaperclipIcon } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { KindIcon } from "@/components/kind-icon";
@@ -15,12 +15,12 @@ import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { FileViewer } from "@/components/viewers/file-viewer";
 import { formatBytes, KIND_LABEL } from "@/lib/files";
-import { cn } from "@/lib/utils";
-import type { Lesson } from "@/lib/types";
-
 import { useCourseSource } from "@/components/source/course-source";
 import { useLocalPref } from "@/hooks/use-local-pref";
+import type { Lesson } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
+import { LessonNotes } from "./lesson-notes";
 import { useProgress } from "./progress-context";
 
 interface NavLesson {
@@ -52,8 +52,13 @@ export function LessonView({ lesson, moduleTitle, moduleNumber, index, total, pr
   const [autoNext, setAutoNext] = useLocalPref(AUTOPLAY_KEY, true);
   const [upNext, setUpNext] = useState<number | null>(null);
 
+  // "?t=123" (from a note timestamp) opens the lesson at that time.
+  const searchParams = useSearchParams();
+  const linkedTime = Number(searchParams.get("t"));
+
   // Snapshot the resume point once per lesson so live position updates don't re-seek.
   const [startAt] = useState(() => {
+    if (Number.isFinite(linkedTime) && linkedTime > 0) return linkedTime;
     const pos = progress?.position ?? 0;
     const dur = progress?.duration ?? 0;
     return dur > 0 && pos > dur - 15 ? 0 : pos;
@@ -66,6 +71,7 @@ export function LessonView({ lesson, moduleTitle, moduleNumber, index, total, pr
 
   // Set from event handlers only, so auto-complete fires once per view.
   const autoCompleted = useRef(false);
+  const mediaEl = useRef<HTMLMediaElement | null>(null);
   const lastSaved = useRef(0);
 
   const goNext = useCallback(() => {
@@ -177,6 +183,9 @@ export function LessonView({ lesson, moduleTitle, moduleNumber, index, total, pr
             onPause: (pos, dur) => savePosition(lesson.id, pos, dur, true),
             onEnded,
             overlay,
+            onMediaElement: (el) => {
+              mediaEl.current = el;
+            },
           }}
           pdf={{ initialPage, onPage: (page) => savePage(lesson.id, page) }}
         />
@@ -218,6 +227,8 @@ export function LessonView({ lesson, moduleTitle, moduleNumber, index, total, pr
             )}
           </div>
         </div>
+
+        <LessonNotes key={`notes-${lesson.id}`} lessonId={lesson.id} getMedia={() => mediaEl.current} canStamp={isMedia} />
 
         {lesson.resources.length > 0 && (
           <section className="mt-8">

@@ -29,6 +29,7 @@ interface ProgressApi {
   setCompleted: (lessonId: string, completed: boolean) => void;
   savePosition: (lessonId: string, position: number, duration: number, flush?: boolean) => void;
   savePage: (lessonId: string, page: number) => void;
+  saveNotes: (lessonId: string, notes: string) => void;
   markOpened: (lessonId: string) => void;
 }
 
@@ -122,6 +123,10 @@ export function ProgressProvider({
       savePage: (lessonId, page) => {
         update(lessonId, { page });
         enqueue({ lessonId, page });
+      },
+      saveNotes: (lessonId, notes) => {
+        update(lessonId, { notes });
+        enqueue({ lessonId, notes }, true);
       },
       markOpened: (lessonId) => enqueue({ lessonId, opened: true }, true),
     }),

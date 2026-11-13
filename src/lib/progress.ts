@@ -63,8 +63,11 @@ export interface ProgressPatch {
   position?: number;
   duration?: number;
   page?: number;
+  notes?: string;
   opened?: boolean;
 }
+
+export const MAX_NOTES_LENGTH = 20_000;
 
 function isFiniteNumber(v: unknown): v is number {
   return typeof v === "number" && Number.isFinite(v) && v >= 0;
@@ -78,6 +81,11 @@ export function applyProgressPatch(course: CourseProgress, patch: ProgressPatch,
   if (isFiniteNumber(patch.position)) next.position = patch.position;
   if (isFiniteNumber(patch.duration)) next.duration = patch.duration;
   if (isFiniteNumber(patch.page)) next.page = patch.page;
+  if (typeof patch.notes === "string") {
+    const notes = patch.notes.slice(0, MAX_NOTES_LENGTH);
+    if (notes.trim()) next.notes = notes;
+    else delete next.notes;
+  }
   course.lessons[patch.lessonId] = next;
   if (patch.opened) {
     course.lastLessonId = patch.lessonId;
