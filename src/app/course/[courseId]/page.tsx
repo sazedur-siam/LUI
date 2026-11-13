@@ -52,7 +52,8 @@ async function Overview({ params }: { params: PageProps<"/course/[courseId]">["p
         durationsPending={pending > 0}
         basePath={`/course/${course.id}`}
         location={course.root}
-        menu={<CourseMenu courseId={course.id} title={course.title} afterRemove="/" />}
+        access={record.access}
+        menu={<CourseMenu courseId={course.id} title={course.title} access={record.access} afterRemove="/" />}
       />
     </ServerSourceProvider>
   );

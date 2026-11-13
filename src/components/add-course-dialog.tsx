@@ -19,6 +19,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import type { CourseAccess } from "@/lib/types";
+
+import { CourseAccessChoice } from "./course-access-choice";
 
 interface Listing {
   path: string;
@@ -44,6 +47,7 @@ export function AddCourseDialog({ trigger, relocate }: { trigger?: React.ReactNo
   const [listing, setListing] = useState<Listing | null>(null);
   const [loading, setLoading] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [access, setAccess] = useState<CourseAccess>("open");
 
   const browse = useCallback(async (dir?: string, quiet = false) => {
     setLoading(true);
@@ -78,7 +82,9 @@ export function AddCourseDialog({ trigger, relocate }: { trigger?: React.ReactNo
   const submit = (path = value) => {
     setError(null);
     startTransition(async () => {
-      const result = relocate ? await relocateCourseAction(relocate.courseId, path) : await addCourseAction(path);
+      const result = relocate
+        ? await relocateCourseAction(relocate.courseId, path)
+        : await addCourseAction(path, access);
       if (result.error || !result.id) {
         setError(result.error ?? "Could not use that folder.");
         return;
@@ -184,6 +190,8 @@ export function AddCourseDialog({ trigger, relocate }: { trigger?: React.ReactNo
             </ul>
           </ScrollArea>
         </div>
+
+        {!relocate && <CourseAccessChoice value={access} onChange={setAccess} idPrefix="add-course-access" />}
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => setOpen(false)}>

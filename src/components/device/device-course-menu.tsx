@@ -1,6 +1,15 @@
 "use client";
 
-import { DownloadIcon, EllipsisVerticalIcon, RefreshCwIcon, RotateCcwIcon, Trash2Icon, UploadIcon } from "lucide-react";
+import {
+  DownloadIcon,
+  EllipsisVerticalIcon,
+  LockIcon,
+  LockOpenIcon,
+  RefreshCwIcon,
+  RotateCcwIcon,
+  Trash2Icon,
+  UploadIcon,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { toast } from "sonner";
@@ -19,6 +28,7 @@ import {
   getDeviceProgress,
   replaceDeviceProgress,
   resetDeviceProgress,
+  setDeviceCourseAccess,
 } from "@/lib/client/device-db";
 import { rescanDeviceCourse } from "@/lib/client/device-files";
 import { downloadJson, pickJsonFile } from "@/lib/client/file-transfer";
@@ -82,6 +92,20 @@ export function DeviceCourseMenu({ record, afterRemove }: { record: DeviceCourse
             }}
           >
             <RotateCcwIcon /> Reset progress
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={() => {
+              const next = record.access === "guided" ? "open" : "guided";
+              if (next === "open" && !confirm(`Unlock every lesson in “${record.title}”?`)) return;
+              startTransition(async () => {
+                await setDeviceCourseAccess(record.id, next);
+                toast.success(next === "guided" ? "Guided: lessons now unlock in order" : "All lessons unlocked");
+                window.location.reload();
+              });
+            }}
+          >
+            {record.access === "guided" ? <LockOpenIcon /> : <LockIcon />}
+            {record.access === "guided" ? "Lessons: unlock all" : "Lessons: guided (in order)"}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem

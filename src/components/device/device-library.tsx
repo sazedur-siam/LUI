@@ -89,7 +89,7 @@ export function DeviceLibrary({ hosted }: { hosted: boolean }) {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {items.map(({ record, progress }) => {
           const stats = courseStats(record.course, progress.lessons);
-          const resume = resumeLesson(record.course, progress);
+          const resume = resumeLesson(record.course, progress, record.access);
           return (
             <CourseCard
               key={record.id}
@@ -102,6 +102,7 @@ export function DeviceLibrary({ hosted }: { hosted: boolean }) {
               started={stats.done > 0 || !!progress.lastLessonId}
               menu={<DeviceCourseMenu record={record} />}
               device
+              guided={record.access === "guided"}
             />
           );
         })}

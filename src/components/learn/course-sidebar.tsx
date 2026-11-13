@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeftIcon, CheckCircle2Icon, EyeIcon, EyeOffIcon, ChevronRightIcon, CircleIcon, PlayCircleIcon, SearchIcon, XIcon } from "lucide-react";
+import { ArrowLeftIcon, CheckCircle2Icon, EyeIcon, EyeOffIcon, LockIcon, ChevronRightIcon, CircleIcon, PlayCircleIcon, SearchIcon, XIcon } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
@@ -28,6 +28,7 @@ import { courseStats, groupModules, moduleStats } from "@/lib/progress";
 import { cn } from "@/lib/utils";
 import type { Course, Lesson } from "@/lib/types";
 
+import { useLessonAccess } from "./lesson-access";
 import { useProgress } from "./progress-context";
 
 export function CourseSidebar({
@@ -82,17 +83,37 @@ export function CourseSidebar({
     m.id === currentModuleId || moduleStats(m, progress).done < m.lessons.length;
   const hiddenModules = hideDone ? course.modules.filter((m) => !isUnfinishedOrCurrent(m)).length : 0;
 
-  const lessonRow = (l: Lesson) => (
-    <LessonRow
-      key={l.id}
-      basePath={basePath}
-      lesson={l}
-      active={l.id === currentId}
-      completed={!!progress[l.id]?.completed}
-      duration={durations[l.id]}
-      activeRef={l.id === currentId ? activeRef : undefined}
-    />
-  );
+  // Guided courses: lessons past the frontier are locked. Briefly highlight a lesson as it unlocks.
+  const access = useLessonAccess();
+  const frontierId = access.frontier?.id ?? null;
+  const [seenFrontier, setSeenFrontier] = useState(frontierId);
+  const [justUnlocked, setJustUnlocked] = useState<string | null>(null);
+  if (frontierId !== seenFrontier) {
+    setSeenFrontier(frontierId);
+    if (access.guided && frontierId) setJustUnlocked(frontierId);
+  }
+  useEffect(() => {
+    if (!justUnlocked) return;
+    const t = setTimeout(() => setJustUnlocked(null), 1600);
+    return () => clearTimeout(t);
+  }, [justUnlocked]);
+
+  const lessonRow = (l: Lesson) => {
+    const locked = !access.isUnlocked(l.id);
+    return (
+      <LessonRow
+        key={l.id}
+        basePath={basePath}
+        lesson={l}
+        active={l.id === currentId}
+        completed={!!progress[l.id]?.completed}
+        duration={durations[l.id]}
+        activeRef={l.id === currentId ? activeRef : undefined}
+        lockedHint={locked ? `Finish “${access.blockerFor(l.id)?.title ?? "the previous lesson"}” to unlock` : undefined}
+        highlight={l.id === justUnlocked}
+      />
+    );
+  };
 
   return (
     <Sidebar className="border-r">
@@ -244,6 +265,8 @@ function LessonRow({
   completed,
   duration,
   activeRef,
+  lockedHint,
+  highlight,
 }: {
   basePath: string;
   lesson: Lesson;
@@ -251,15 +274,43 @@ function LessonRow({
   completed: boolean;
   duration?: number;
   activeRef?: React.Ref<HTMLAnchorElement>;
+  /** Set when a guided course hasn't unlocked this lesson yet. */
+  lockedHint?: string;
+  highlight?: boolean;
 }) {
+  const meta = (
+    <span className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
+      <KindIcon kind={lesson.kind} className="size-3" />
+      {duration ? formatDuration(duration) : lesson.ext.toUpperCase()}
+      {lesson.resources.length > 0 && <span>· {lesson.resources.length} files</span>}
+    </span>
+  );
+  if (lockedHint) {
+    return (
+      <li>
+        <div
+          title={lockedHint}
+          aria-disabled="true"
+          className="flex cursor-not-allowed items-start gap-2 rounded-md px-2 py-1.5 text-[13px] leading-snug text-[#607d8b]/70"
+        >
+          <LockIcon className="mt-px size-4 shrink-0 text-[#90a4ae]" />
+          <span className="min-w-0 flex-1">
+            <span className="line-clamp-2">{lesson.title}</span>
+            {meta}
+          </span>
+        </div>
+      </li>
+    );
+  }
   return (
     <li>
       <Link
         ref={activeRef}
         href={`${basePath}/learn/${lesson.id}`}
         className={cn(
-          "flex items-start gap-2 rounded-md px-2 py-1.5 text-[13px] leading-snug transition-colors hover:bg-[#e3f2fd]/70",
+          "flex items-start gap-2 rounded-md px-2 py-1.5 text-[13px] leading-snug transition-colors duration-700 hover:bg-[#e3f2fd]/70",
           active && "bg-[#e3f2fd] text-[#1565c0]",
+          highlight && "bg-[#bbdefb]",
         )}
         aria-current={active ? "page" : undefined}
       >
@@ -274,11 +325,7 @@ function LessonRow({
         </span>
         <span className="min-w-0 flex-1">
           <span className="line-clamp-2">{lesson.title}</span>
-          <span className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
-            <KindIcon kind={lesson.kind} className="size-3" />
-            {duration ? formatDuration(duration) : lesson.ext.toUpperCase()}
-            {lesson.resources.length > 0 && <span>· {lesson.resources.length} files</span>}
-          </span>
+          {meta}
         </span>
       </Link>
     </li>

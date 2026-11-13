@@ -1,7 +1,7 @@
 "use client";
 
 import { applyProgressPatch, type ProgressPatch } from "@/lib/progress";
-import type { Course, CourseProgress } from "@/lib/types";
+import type { Course, CourseAccess, CourseProgress } from "@/lib/types";
 
 /** A course whose folder lives on this device and is read by the browser. */
 export interface DeviceCourseRecord {
@@ -14,6 +14,8 @@ export interface DeviceCourseRecord {
   course: Course;
   /** Chromium only: persistent handle so the folder can be reopened without picking it again. */
   handle?: FileSystemDirectoryHandle;
+  /** Guided (lessons unlock in order) or open; missing means open. */
+  access?: CourseAccess;
 }
 
 const DB_NAME = "lui-device";
@@ -90,6 +92,12 @@ export async function putDeviceCourse(record: DeviceCourseRecord) {
   s.put(record);
   await done(tx);
   notify();
+}
+
+export async function setDeviceCourseAccess(id: string, access: CourseAccess) {
+  const record = await getDeviceCourse(id);
+  if (!record) throw new Error("Course not found on this device.");
+  await putDeviceCourse({ ...record, access });
 }
 
 export async function deleteDeviceCourse(id: string) {

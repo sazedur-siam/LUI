@@ -13,15 +13,20 @@ import {
   removeCourse,
   replaceProgress,
   resetProgress,
+  setCourseAccess,
 } from "@/lib/server/store";
+import type { CourseAccess } from "@/lib/types";
 
-export async function addCourseAction(rawPath: string): Promise<{ id?: string; error?: string }> {
+export async function addCourseAction(
+  rawPath: string,
+  access: CourseAccess = "open",
+): Promise<{ id?: string; error?: string }> {
   const input = rawPath.trim().replace(/^["']|["']$/g, "");
   if (!input) return { error: "Enter a folder path." };
   const expanded = input.replace(/^~(?=$|\/)/, os.homedir());
   if (!path.isAbsolute(expanded)) return { error: "Use an absolute path, e.g. /Users/you/Courses/My course" };
   try {
-    const record = await addCourse(expanded, courseTitleFromPath(expanded));
+    const record = await addCourse(expanded, courseTitleFromPath(expanded), access === "guided" ? "guided" : "open");
     invalidateCourse(record.id);
     const course = await getCourse(record.id, { fresh: true });
     if (!course || course.lessonCount === 0) {
@@ -52,6 +57,10 @@ export async function relocateCourseAction(id: string, rawPath: string): Promise
   } catch (err) {
     return { error: err instanceof Error ? err.message : String(err) };
   }
+}
+
+export async function setCourseAccessAction(id: string, access: CourseAccess) {
+  await setCourseAccess(id, access === "guided" ? "guided" : "open");
 }
 
 export async function removeCourseAction(id: string) {

@@ -4,7 +4,7 @@ import { Suspense } from "react";
 
 import { resumeLesson } from "@/lib/progress";
 import { getCourse } from "@/lib/server/courses";
-import { getProgress } from "@/lib/server/store";
+import { getCourseRecord, getProgress } from "@/lib/server/store";
 
 /** /course/:id/learn → the lesson to resume. */
 export default function ResumePage({ params }: PageProps<"/course/[courseId]/learn">) {
@@ -20,7 +20,8 @@ async function Resume({ params }: { params: PageProps<"/course/[courseId]/learn"
   await connection();
   const course = await getCourse(courseId);
   if (!course) notFound();
-  const lesson = resumeLesson(course, await getProgress(courseId));
+  const record = await getCourseRecord(courseId);
+  const lesson = resumeLesson(course, await getProgress(courseId), record?.access);
   if (!lesson) notFound();
   redirect(`/course/${courseId}/learn/${lesson.id}`);
   return null;

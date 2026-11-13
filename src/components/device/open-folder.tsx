@@ -5,9 +5,25 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { CourseAccessChoice } from "@/components/course-access-choice";
 import { Button } from "@/components/ui/button";
-import type { DeviceCourseRecord } from "@/lib/client/device-db";
-import { importFileList, pickFolderWithHandle, supportsDirectoryPicker } from "@/lib/client/device-files";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { type DeviceCourseRecord, setDeviceCourseAccess } from "@/lib/client/device-db";
+import {
+  importFileList,
+  isNewDeviceCourse,
+  pickFolderWithHandle,
+  supportsDirectoryPicker,
+} from "@/lib/client/device-files";
+import { plural } from "@/lib/files";
+import type { CourseAccess } from "@/lib/types";
 
 // React's types don't include the non-standard directory attributes.
 const DIRECTORY_ATTRS = { webkitdirectory: "", directory: "" } as Record<string, string>;
@@ -63,12 +79,26 @@ export function OpenFolderButton({
   label?: string;
 }) {
   const router = useRouter();
+  // A newly added course asks how lessons should open before it's shown.
+  const [pendingNew, setPendingNew] = useState<DeviceCourseRecord | null>(null);
+  const [access, setAccess] = useState<CourseAccess>("open");
+
+  const go = (record: DeviceCourseRecord) => {
+    toast.success(`Opened “${record.title}” · ${plural(record.course.lessonCount, "lesson")}`);
+    router.push(`/device/${record.id}`);
+  };
+
   const picker = useFolderPicker({
     onDone: (record) => {
-      toast.success(`Opened “${record.title}” · ${record.course.lessonCount} lessons`);
-      router.push(`/device/${record.id}`);
+      if (isNewDeviceCourse(record)) {
+        setAccess("open");
+        setPendingNew(record);
+      } else {
+        go(record);
+      }
     },
   });
+
   return (
     <>
       <Button variant={variant} onClick={picker.open} disabled={picker.busy}>
@@ -76,6 +106,31 @@ export function OpenFolderButton({
         {picker.busy ? "Reading folder…" : label}
       </Button>
       {picker.input}
+      <Dialog open={!!pendingNew} onOpenChange={(o) => !o && pendingNew && go(pendingNew)}>
+        <DialogContent className="gap-5 sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{pendingNew?.title}</DialogTitle>
+            <DialogDescription>
+              {pendingNew &&
+                `${plural(pendingNew.course.modules.length, "module")} · ${plural(pendingNew.course.lessonCount, "lesson")} found on this device.`}
+            </DialogDescription>
+          </DialogHeader>
+          <CourseAccessChoice value={access} onChange={setAccess} idPrefix="device-access" />
+          <DialogFooter>
+            <Button
+              onClick={async () => {
+                if (!pendingNew) return;
+                const record = { ...pendingNew, access };
+                if (access !== "open") await setDeviceCourseAccess(record.id, access);
+                setPendingNew(null);
+                go(record);
+              }}
+            >
+              Start course
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

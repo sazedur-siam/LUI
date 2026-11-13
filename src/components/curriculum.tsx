@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2Icon, CircleIcon } from "lucide-react";
+import { CheckCircle2Icon, CircleIcon, LockIcon } from "lucide-react";
 import Link from "next/link";
 import type { CSSProperties } from "react";
 
@@ -10,7 +10,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { groupColors } from "@/lib/colors";
 import { formatDuration, KIND_LABEL } from "@/lib/files";
 import { countCompleted, groupModules, moduleStats, percent, sumDurations } from "@/lib/progress";
-import type { LessonProgress, Module } from "@/lib/types";
+import { lessonAccess } from "@/lib/lesson-access";
+import type { CourseAccess, LessonProgress, Module } from "@/lib/types";
 
 export function Curriculum({
   basePath,
@@ -18,13 +19,16 @@ export function Curriculum({
   progress,
   durations,
   openModuleId,
+  access,
 }: {
   basePath: string;
   modules: Module[];
   progress: Record<string, LessonProgress>;
   durations: Record<string, number>;
   openModuleId?: string;
+  access?: CourseAccess;
 }) {
+  const locks = lessonAccess({ modules }, progress, access);
   const colors = groupColors(modules.map((m) => m.group));
   const groups = groupModules(modules);
 
@@ -80,6 +84,24 @@ export function Curriculum({
                           const p = progress[l.id];
                           const d = durations[l.id];
                           const resumeAt = !p?.completed && p?.position && p.position > 5 ? p.position : null;
+                          if (!locks.isUnlocked(l.id)) {
+                            return (
+                              <li key={l.id}>
+                                <div
+                                  title={`Finish “${locks.blockerFor(l.id)?.title ?? "the previous lesson"}” to unlock`}
+                                  aria-disabled="true"
+                                  className="flex cursor-not-allowed items-center gap-3 rounded-lg px-3 py-2 text-sm text-[#607d8b]/70"
+                                >
+                                  <LockIcon className="size-4 shrink-0 text-[#90a4ae]" />
+                                  <KindIcon kind={l.kind} className="opacity-60" />
+                                  <span className="min-w-0 flex-1 truncate">{l.title}</span>
+                                  <span className="w-14 shrink-0 text-right text-xs tabular-nums">
+                                    {d ? formatDuration(d) : KIND_LABEL[l.kind]}
+                                  </span>
+                                </div>
+                              </li>
+                            );
+                          }
                           return (
                             <li key={l.id}>
                               <Link

@@ -4,7 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import { applyProgressPatch, type ProgressPatch } from "@/lib/progress";
-import type { CourseProgress, CourseRecord } from "@/lib/types";
+import type { CourseAccess, CourseProgress, CourseRecord } from "@/lib/types";
 
 import { SERVER_FILES_DISABLED_MESSAGE, serverFilesEnabled } from "./mode";
 import { DATA_DIR, hashId, readJson, writeJsonAtomic } from "./paths";
@@ -58,7 +58,7 @@ export async function getCourseRecord(id: string) {
   return db.courses.find((c) => c.id === id) ?? null;
 }
 
-export async function addCourse(rootInput: string, title: string): Promise<CourseRecord> {
+export async function addCourse(rootInput: string, title: string, access: CourseAccess = "open"): Promise<CourseRecord> {
   if (!serverFilesEnabled()) throw new Error(SERVER_FILES_DISABLED_MESSAGE);
   const root = path.resolve(rootInput);
   const stat = await fs.stat(root).catch(() => null);
@@ -67,7 +67,7 @@ export async function addCourse(rootInput: string, title: string): Promise<Cours
   const id = courseIdFor(root);
   const existing = db.courses.find((c) => c.id === id);
   if (existing) return existing;
-  const record: CourseRecord = { id, root, title, addedAt: Date.now() };
+  const record: CourseRecord = { id, root, title, addedAt: Date.now(), access };
   db.courses.push(record);
   scheduleSave();
   return record;
@@ -86,6 +86,14 @@ export async function relocateCourse(id: string, rootInput: string) {
   record.root = root;
   scheduleSave();
   return { record, previous };
+}
+
+export async function setCourseAccess(id: string, access: CourseAccess) {
+  const db = await load();
+  const record = db.courses.find((c) => c.id === id);
+  if (!record) throw new Error("Unknown course");
+  record.access = access;
+  scheduleSave();
 }
 
 export async function removeCourse(id: string) {

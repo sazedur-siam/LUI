@@ -1,4 +1,4 @@
-import type { Course, CourseProgress, Lesson, LessonProgress, Module } from "./types";
+import type { Course, CourseAccess, CourseProgress, Lesson, LessonProgress, Module } from "./types";
 
 type ProgressMap = Record<string, LessonProgress | undefined>;
 
@@ -28,7 +28,21 @@ export function courseStats(course: Pick<Course, "modules">, progress: ProgressM
 }
 
 /** The lesson "Continue" should open: the last one opened if unfinished, else the next unfinished one. */
-export function resumeLesson(course: Pick<Course, "modules">, progress: CourseProgress): Lesson | null {
+export function resumeLesson(
+  course: Pick<Course, "modules">,
+  progress: CourseProgress,
+  access?: CourseAccess,
+): Lesson | null {
+  const lesson = resumeCandidate(course, progress);
+  if (access !== "guided" || !lesson) return lesson;
+  // Never resume into a locked lesson: fall back to the first unfinished one.
+  const frontier = flatLessons(course).find((l) => !progress.lessons[l.id]?.completed);
+  if (!frontier || progress.lessons[lesson.id]?.completed) return lesson;
+  const lessons = flatLessons(course);
+  return lessons.indexOf(lesson) <= lessons.indexOf(frontier) ? lesson : frontier;
+}
+
+function resumeCandidate(course: Pick<Course, "modules">, progress: CourseProgress): Lesson | null {
   const lessons = flatLessons(course);
   if (lessons.length === 0) return null;
   const lastIndex = progress.lastLessonId ? lessons.findIndex((l) => l.id === progress.lastLessonId) : -1;

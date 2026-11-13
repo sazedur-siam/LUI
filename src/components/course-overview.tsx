@@ -3,6 +3,7 @@ import {
   ClockIcon,
   FolderIcon,
   LayersIcon,
+  LockIcon,
   ListVideoIcon,
   type LucideIcon,
   MonitorSmartphoneIcon,
@@ -18,8 +19,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDuration, plural } from "@/lib/files";
 import { courseStats, flatLessons, resumeLesson, sumDurations } from "@/lib/progress";
+import { lessonAccess } from "@/lib/lesson-access";
 import { splitStamps } from "@/lib/timestamps";
-import type { Course, CourseProgress } from "@/lib/types";
+import type { Course, CourseAccess, CourseProgress } from "@/lib/types";
 
 /**
  * Course overview body, shared by server (local) courses and device courses.
@@ -34,6 +36,7 @@ export function CourseOverview({
   location,
   device,
   menu,
+  access,
 }: {
   course: Course;
   progress: CourseProgress;
@@ -44,10 +47,12 @@ export function CourseOverview({
   location: string;
   device?: boolean;
   menu?: React.ReactNode;
+  access?: CourseAccess;
 }) {
+  const locks = lessonAccess(course, progress.lessons, access);
   const lessons = flatLessons(course);
   const stats = courseStats(course, progress.lessons);
-  const resume = resumeLesson(course, progress);
+  const resume = resumeLesson(course, progress, access);
   const started = stats.done > 0 || !!progress.lastLessonId;
   const totalSeconds = sumDurations(lessons, durations);
   const remainingSeconds = sumDurations(
@@ -93,6 +98,15 @@ export function CourseOverview({
             {menu}
           </div>
           <div className="flex flex-wrap gap-2">
+            {locks.guided && (
+              <span
+                className="tint inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium"
+                style={{ "--c": "#1E88E5" } as React.CSSProperties}
+                title="Lessons unlock in order"
+              >
+                <LockIcon className="size-3.5" /> Guided
+              </span>
+            )}
             <Chip icon={LayersIcon} label={plural(course.modules.length, "module")} />
             <Chip icon={ListVideoIcon} label={`${plural(course.lessonCount, "lesson")} · ${plural(videoCount, "video")}`} />
             {lessons.some((l) => l.kind === "video" || l.kind === "audio") && (
@@ -172,6 +186,7 @@ export function CourseOverview({
             progress={progress.lessons}
             durations={durations}
             openModuleId={resume?.moduleId}
+            access={access}
           />
         </TabsContent>
         <TabsContent value="resources">
@@ -200,7 +215,11 @@ export function CourseOverview({
                 </Link>
                 <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">
                   {splitStamps(text).map((part, i) =>
-                    "stamp" in part ? (
+                    "stamp" in part && !locks.isUnlocked(lesson.id) ? (
+                      <span key={i} className="rounded-full bg-[#eceff1] px-1.5 py-0.5 text-xs text-[#607d8b]" title="Locked">
+                        {part.stamp}
+                      </span>
+                    ) : "stamp" in part ? (
                       <Link
                         key={i}
                         href={`${basePath}/learn/${lesson.id}?t=${part.seconds}`}
