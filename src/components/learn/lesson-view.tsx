@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRightIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, PaperclipIcon } from "lucide-react";
+import { ArrowRightIcon, CaptionsIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, PaperclipIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -17,10 +17,11 @@ import { FileViewer } from "@/components/viewers/file-viewer";
 import { formatBytes, KIND_LABEL } from "@/lib/files";
 import { useCourseSource } from "@/components/source/course-source";
 import { useLocalPref } from "@/hooks/use-local-pref";
-import type { Lesson } from "@/lib/types";
+import type { Lesson, SubtitleTrack } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 import { LessonNotes } from "./lesson-notes";
+import { TranscriptPanel } from "./transcript-panel";
 import { useProgress } from "./progress-context";
 
 interface NavLesson {
@@ -72,6 +73,9 @@ export function LessonView({ lesson, moduleTitle, moduleNumber, index, total, pr
   // Set from event handlers only, so auto-complete fires once per view.
   const autoCompleted = useRef(false);
   const mediaEl = useRef<HTMLMediaElement | null>(null);
+  const getMedia = useCallback(() => mediaEl.current, []);
+  const [tracks, setTracks] = useState<SubtitleTrack[]>([]);
+  const [showTranscript, setShowTranscript] = useLocalPref("lui:transcript", false);
   const lastSaved = useRef(0);
 
   const goNext = useCallback(() => {
@@ -92,11 +96,16 @@ export function LessonView({ lesson, moduleTitle, moduleNumber, index, total, pr
     return () => clearTimeout(t);
   }, [upNext, goNext]);
 
-  // Shift+N / Shift+P to move between lessons.
+  // Shift+N / Shift+P to move between lessons; T toggles the transcript.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
+      if (e.key === "t" && !e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey && tracks.length > 0) {
+        e.preventDefault();
+        setShowTranscript(!showTranscript);
+        return;
+      }
       if (!e.shiftKey || e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === "N" && next) {
         e.preventDefault();
@@ -108,7 +117,7 @@ export function LessonView({ lesson, moduleTitle, moduleNumber, index, total, pr
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [basePath, next, prev, router]);
+  }, [basePath, next, prev, router, tracks.length, showTranscript, setShowTranscript]);
 
   const onTime = (position: number, duration: number) => {
     if (Math.abs(position - lastSaved.current) >= 5) {
@@ -186,9 +195,12 @@ export function LessonView({ lesson, moduleTitle, moduleNumber, index, total, pr
             onMediaElement: (el) => {
               mediaEl.current = el;
             },
+            onSubtitles: setTracks,
           }}
           pdf={{ initialPage, onPage: (page) => savePage(lesson.id, page) }}
         />
+
+        {showTranscript && tracks.length > 0 && <TranscriptPanel tracks={tracks} getMedia={getMedia} />}
 
         <div className="mt-6 flex flex-wrap items-start gap-4">
           <div className="min-w-0 flex-1">
@@ -199,6 +211,16 @@ export function LessonView({ lesson, moduleTitle, moduleNumber, index, total, pr
             <h1 className="mt-1 text-xl font-medium leading-snug tracking-tight">{lesson.title}</h1>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {tracks.length > 0 && (
+              <Button
+                variant={showTranscript ? "secondary" : "ghost"}
+                onClick={() => setShowTranscript(!showTranscript)}
+                aria-pressed={showTranscript}
+                title="Transcript (T)"
+              >
+                <CaptionsIcon /> Transcript
+              </Button>
+            )}
             {isMedia && next && (
               <label className="mr-1 flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
                 <Switch
@@ -228,7 +250,7 @@ export function LessonView({ lesson, moduleTitle, moduleNumber, index, total, pr
           </div>
         </div>
 
-        <LessonNotes key={`notes-${lesson.id}`} lessonId={lesson.id} getMedia={() => mediaEl.current} canStamp={isMedia} />
+        <LessonNotes key={`notes-${lesson.id}`} lessonId={lesson.id} getMedia={getMedia} canStamp={isMedia} />
 
         {lesson.resources.length > 0 && (
           <section className="mt-8">
