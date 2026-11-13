@@ -14,7 +14,7 @@ import { useCourseSource, useFileUrl } from "@/components/source/course-source";
 import { useLocalNumber } from "@/hooks/use-local-pref";
 import { Button } from "@/components/ui/button";
 import { isMissingFileError } from "@/lib/errors";
-import type { PlaybackPlan } from "@/lib/types";
+import type { PlaybackPlan, SubtitleTrack } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 import { MissingFile } from "./missing-file";
@@ -33,6 +33,8 @@ export interface MediaPlayerProps {
   onPause?: (position: number, duration: number) => void;
   /** Receives the playing media element (for notes: read the time, seek). */
   onMediaElement?: (el: HTMLMediaElement) => void;
+  /** Receives the subtitle tracks available for this media (for the transcript). */
+  onSubtitles?: (tracks: SubtitleTrack[]) => void;
   overlay?: React.ReactNode;
   className?: string;
 }
@@ -129,6 +131,7 @@ export function MediaPlayer(props: MediaPlayerProps) {
       mediaEl.current = el;
       el.playbackRate = clampRate(rate);
       props.onMediaElement?.(el);
+      props.onSubtitles?.(plan?.subtitles ?? []);
       // Some browsers "play" an unsupported video stream as audio only; treat that as a failure.
       if (plan?.hasVideo && kind === "video" && el instanceof HTMLVideoElement && el.videoWidth === 0) {
         if (plan.mode !== "transcode") return fallback();
