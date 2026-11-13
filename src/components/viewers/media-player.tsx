@@ -93,15 +93,17 @@ export function MediaPlayer(props: MediaPlayerProps) {
     };
   }, [source, lessonId, filePath, resourcePath, kind, force, reqKey]);
 
+  // direct → remux (server or in-browser) → transcode (server only) → error.
   const fallback = () => {
     if (!plan) return;
-    if (!source.canConvert) {
+    if (plan.mode === "direct" && (source.canConvert || source.canRemux)) setForce("remux");
+    else if (plan.mode === "remux" && plan.hasVideo && source.canConvert) setForce("transcode");
+    else if (source.canConvert) setError("This file could not be played in the browser.");
+    else {
       setError(
-        `This browser can't play ${plan.summary} files. Download it, or run LUI on your computer, which converts it automatically.`,
+        `This browser can't play this ${plan.summary.split(" ")[0]} file. Try Chrome or Edge, download it, or run LUI on your computer, which converts any format.`,
       );
-    } else if (plan.mode === "direct") setForce("remux");
-    else if (plan.mode === "remux" && plan.hasVideo) setForce("transcode");
-    else setError("This file could not be played in the browser.");
+    }
   };
 
   // Which source the resume position has been applied to (refs are only touched in handlers).
@@ -222,14 +224,14 @@ export function MediaPlayer(props: MediaPlayerProps) {
           </span>
           <span className="text-border">•</span>
           <span>{plan.summary}</span>
-          {source.canConvert && plan.mode === "direct" && plan.hasVideo && (
+          {(source.canConvert || source.canRemux) && plan.mode === "direct" && plan.hasVideo && (
             <button
               type="button"
               className="ml-auto hover:text-foreground"
-              onClick={() => setForce("transcode")}
+              onClick={() => setForce(source.canConvert ? "transcode" : "remux")}
               title="Use this if the picture or sound is wrong"
             >
-              Playback issues? Convert
+              Playback issues? {source.canConvert ? "Convert" : "Repackage"}
             </button>
           )}
         </div>

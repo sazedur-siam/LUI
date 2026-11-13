@@ -16,7 +16,7 @@ import { type ResourceRef, ResourceItem } from "@/components/resource-dialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { formatDuration } from "@/lib/files";
+import { formatDuration, plural } from "@/lib/files";
 import { courseStats, flatLessons, resumeLesson, sumDurations } from "@/lib/progress";
 import { splitStamps } from "@/lib/timestamps";
 import type { Course, CourseProgress } from "@/lib/types";
@@ -220,10 +220,6 @@ export function CourseOverview({
       </Tabs>
     </div>
   );
-}
-
-function plural(n: number, word: string) {
-  return `${n} ${word}${n === 1 ? "" : "s"}`;
 }
 
 function Chip({ icon: Icon, label }: { icon: LucideIcon; label: string }) {

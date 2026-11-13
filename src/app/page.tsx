@@ -10,6 +10,7 @@ import { DeviceLibrary } from "@/components/device/device-library";
 import { OpenFolderButton } from "@/components/device/open-folder";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
+import { plural } from "@/lib/files";
 import { courseStats, resumeLesson } from "@/lib/progress";
 import { getCourse } from "@/lib/server/courses";
 import { serverFilesEnabled } from "@/lib/server/mode";
@@ -75,7 +76,7 @@ async function Library() {
                 id={record.id}
                 href={`/course/${record.id}`}
                 title={record.title}
-                meta={course ? `${course.modules.length} modules · ${course.lessonCount} lessons` : "Folder unavailable"}
+                meta={course ? `${plural(course.modules.length, "module")} · ${plural(course.lessonCount, "lesson")}` : "Folder unavailable"}
                 stats={stats}
                 resume={resume && { href: `/course/${record.id}/learn/${resume.id}`, title: resume.title }}
                 started={(stats?.done ?? 0) > 0 || !!progress.lastLessonId}

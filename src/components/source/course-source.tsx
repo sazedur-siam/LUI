@@ -36,6 +36,8 @@ export interface CourseSource {
   openExternally?: (path: string, action: "open" | "reveal") => Promise<void>;
   /** Whether the source can transcode formats the browser can't play. */
   canConvert: boolean;
+  /** Whether the source can repackage (remux) a container the browser can't open. */
+  canRemux: boolean;
   /** Re-read the course folder (after files were added, moved or renamed). */
   rescan?: () => Promise<void>;
 }
@@ -98,6 +100,7 @@ export function createServerSource(courseId: string): CourseSource {
     courseId,
     basePath: `/course/${courseId}`,
     canConvert: true,
+    canRemux: true,
     urlSync: (path, download) => fileUrl(courseId, path, { download }),
     getUrl: async (path) => fileUrl(courseId, path),
     readText: async (path) => {

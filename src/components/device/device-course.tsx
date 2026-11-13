@@ -9,6 +9,8 @@ import type { ProgressSaver } from "@/components/learn/progress-context";
 import { type CourseSource, CourseSourceProvider } from "@/components/source/course-source";
 import { StatusNotice } from "@/components/status-notice";
 import { Button } from "@/components/ui/button";
+import { browserCaps } from "@/lib/client/caps";
+import { startBrowserRemux } from "@/lib/client/browser-remux";
 import {
   type DeviceCourseRecord,
   getDeviceCourse,
@@ -20,6 +22,7 @@ import {
 import {
   type AccessState,
   checkAccess,
+  getDeviceFile,
   getDeviceFileUrl,
   readDeviceText,
   requestAccess,
@@ -29,7 +32,7 @@ import { isMissingFileError } from "@/lib/errors";
 import { extOf } from "@/lib/files";
 import { flatLessons, locateLesson } from "@/lib/progress";
 import { langFromName, subtitleLabel, toVtt } from "@/lib/subtitles";
-import type { Course, CourseProgress } from "@/lib/types";
+import type { Course, CourseProgress, SubtitleTrack } from "@/lib/types";
 
 import { useFolderPicker } from "./open-folder";
 
@@ -37,6 +40,24 @@ import { useFolderPicker } from "./open-folder";
 
 function createDeviceSource(record: DeviceCourseRecord): CourseSource {
   const id = record.id;
+  // Sidecar subtitles converted to WebVTT blob URLs, built once per lesson file (plans are polled while repackaging).
+  const subtitleCache = new Map<string, Promise<SubtitleTrack[]>>();
+  const subtitlesFor = (lessonId: string, path: string) => {
+    const lesson = locateLesson(record.course, lessonId)?.lesson;
+    if (!lesson || lesson.path !== path || lesson.subtitles.length === 0) return Promise.resolve([]);
+    let tracks = subtitleCache.get(path);
+    if (!tracks) {
+      tracks = Promise.all(
+        lesson.subtitles.map(async (file, i) => {
+          const text = await readDeviceText(id, file);
+          const blob = new Blob([toVtt(text, file)], { type: "text/vtt" });
+          return { label: subtitleLabel(file, i), lang: langFromName(file), src: URL.createObjectURL(blob) };
+        }),
+      );
+      subtitleCache.set(path, tracks);
+    }
+    return tracks;
+  };
   return {
     rescan: async () => {
       const next = await rescanDeviceCourse(record);
@@ -47,31 +68,32 @@ function createDeviceSource(record: DeviceCourseRecord): CourseSource {
     courseId: id,
     basePath: `/device/${id}`,
     canConvert: false,
+    canRemux: true,
     getUrl: (path) => getDeviceFileUrl(id, path),
     readText: (path) => readDeviceText(id, path),
-    mediaPlan: async ({ lessonId, path, kind }) => {
-      const src = await getDeviceFileUrl(id, path);
-      const lesson = locateLesson(record.course, lessonId)?.lesson;
-      const subtitles =
-        lesson && lesson.path === path
-          ? await Promise.all(
-              lesson.subtitles.map(async (file, i) => {
-                const text = await readDeviceText(id, file);
-                const blob = new Blob([toVtt(text, file)], { type: "text/vtt" });
-                return { label: subtitleLabel(file, i), lang: langFromName(file), src: URL.createObjectURL(blob) };
-              }),
-            )
-          : [];
-      return {
-        mode: "direct",
-        ready: true,
-        src,
+    mediaPlan: async ({ lessonId, path, kind, force }) => {
+      const ext = extOf(path);
+      const base = {
         type: "",
         duration: null,
         hasVideo: kind === "video",
-        subtitles,
-        summary: extOf(path).toUpperCase(),
+        subtitles: await subtitlesFor(lessonId, path),
       };
+      // Repackage to MP4 in the browser when asked to, or when this browser can't open Matroska at all.
+      const cannotOpen = (ext === "mkv" || ext === "mka") && !browserCaps().split(",").includes("mkv");
+      if (force === "remux" || force === "transcode" || cannotOpen) {
+        const job = startBrowserRemux(`${id}|${path}`, await getDeviceFile(id, path), { audioOnly: kind === "audio" });
+        return {
+          ...base,
+          mode: "remux",
+          ready: job.status === "done",
+          progress: job.progress,
+          src: job.url ?? "",
+          error: job.status === "error" ? job.error : undefined,
+          summary: `${ext.toUpperCase()} → MP4`,
+        };
+      }
+      return { ...base, mode: "direct", ready: true, src: await getDeviceFileUrl(id, path), summary: ext.toUpperCase() };
     },
   };
 }
@@ -96,6 +118,17 @@ function measure(url: string, audio: boolean) {
   });
 }
 
+async function containerDuration(file: Blob) {
+  try {
+    const { ALL_FORMATS, BlobSource, Input } = await import("mediabunny");
+    const input = new Input({ source: new BlobSource(file), formats: ALL_FORMATS });
+    const d = await input.computeDuration();
+    return Number.isFinite(d) ? d : 0;
+  } catch {
+    return 0;
+  }
+}
+
 /** Known durations, measuring missing ones in the background (0 = couldn't be read). */
 function useDeviceDurations(record: DeviceCourseRecord | null, enabled: boolean) {
   const [state, setState] = useState<{ id: string; map: Record<string, number>; pending: boolean } | null>(null);
@@ -115,6 +148,10 @@ function useDeviceDurations(record: DeviceCourseRecord | null, enabled: boolean)
         for (let l = missing.shift(); l && !cancelled; l = missing.shift()) {
           try {
             map[l.id] = await measure(await getDeviceFileUrl(record.id, l.path), l.kind === "audio");
+            // Browsers that can't open the container (e.g. MKV in Safari) can still have it read directly.
+            if (!map[l.id] && /\.(mkv|mka|webm)$/i.test(l.path)) {
+              map[l.id] = await containerDuration(await getDeviceFile(record.id, l.path));
+            }
           } catch {
             map[l.id] = 0;
           }

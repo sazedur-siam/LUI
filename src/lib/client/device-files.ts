@@ -77,7 +77,10 @@ export async function getDeviceFileUrl(courseId: string, path: string) {
   const key = `${courseId}|${path}`;
   const hit = urls.get(key);
   if (hit) return hit;
-  const url = URL.createObjectURL(await getDeviceFile(courseId, path));
+  const file = await getDeviceFile(courseId, path);
+  // Untyped for Matroska: the browser sniffs the content instead of rejecting a "video/x-matroska" label.
+  const blob = /\.(mkv|mka)$/i.test(path) ? file.slice(0, file.size, "") : file;
+  const url = URL.createObjectURL(blob);
   urls.set(key, url);
   return url;
 }
