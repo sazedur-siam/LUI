@@ -11,6 +11,7 @@ import { type CSSProperties, type SyntheticEvent, useCallback, useEffect, useRef
 
 import { Bar } from "@/components/progress-visuals";
 import { useCourseSource, useFileUrl } from "@/components/source/course-source";
+import { useLocalNumber } from "@/hooks/use-local-pref";
 import { Button } from "@/components/ui/button";
 import { isMissingFileError } from "@/lib/errors";
 import type { PlaybackPlan } from "@/lib/types";
@@ -45,6 +46,10 @@ const SKIN_STYLE = {
 } as CSSProperties;
 
 type Force = null | "remux" | "transcode";
+
+const RATE_KEY = "lui:playback-rate";
+const RATES = [1, 1.25, 1.5, 1.75, 2];
+const clampRate = (r: number) => Math.min(3, Math.max(0.5, r));
 
 /** Sentinel error value: the media file is no longer in the course folder. */
 const MISSING = "__missing__";
@@ -108,10 +113,21 @@ export function MediaPlayer(props: MediaPlayerProps) {
 
   // Which source the resume position has been applied to (refs are only touched in handlers).
   const restoredFor = useRef<string | null>(null);
+  const mediaEl = useRef<HTMLMediaElement | null>(null);
+
+  // Playback speed is remembered per browser and applied to every lesson.
+  const [rate, setRate] = useLocalNumber(RATE_KEY, 1);
+  const cycleRate = () => {
+    const next = RATES[(RATES.indexOf(rate) + 1) % RATES.length] ?? 1;
+    if (mediaEl.current) mediaEl.current.playbackRate = next; // ratechange saves it
+    else setRate(next);
+  };
 
   const handlers = {
     onLoadedMetadata: (e: SyntheticEvent<HTMLMediaElement>) => {
       const el = e.currentTarget;
+      mediaEl.current = el;
+      el.playbackRate = clampRate(rate);
       props.onMediaElement?.(el);
       // Some browsers "play" an unsupported video stream as audio only; treat that as a failure.
       if (plan?.hasVideo && kind === "video" && el instanceof HTMLVideoElement && el.videoWidth === 0) {
@@ -130,6 +146,10 @@ export function MediaPlayer(props: MediaPlayerProps) {
     onPause: (e: SyntheticEvent<HTMLMediaElement>) => {
       const el = e.currentTarget;
       props.onPause?.(el.currentTime, el.duration);
+    },
+    onRateChange: (e: SyntheticEvent<HTMLMediaElement>) => {
+      const r = e.currentTarget.playbackRate;
+      if (r !== rate && r >= 0.5 && r <= 3) setRate(r);
     },
     onEnded: () => props.onEnded?.(),
     onError: () => fallback(),
@@ -224,6 +244,14 @@ export function MediaPlayer(props: MediaPlayerProps) {
           </span>
           <span className="text-border">•</span>
           <span>{plan.summary}</span>
+          <button
+            type="button"
+            onClick={cycleRate}
+            className="rounded-full bg-[#e3f2fd] px-2 py-0.5 font-medium tabular-nums text-[#1565c0] hover:bg-[#bbdefb]"
+            title="Playback speed (remembered for every lesson)"
+          >
+            {rate}×
+          </button>
           {(source.canConvert || source.canRemux) && plan.mode === "direct" && plan.hasVideo && (
             <button
               type="button"

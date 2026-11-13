@@ -1,11 +1,14 @@
 "use client";
 
-import { ArrowLeftIcon, CheckCircle2Icon, ChevronRightIcon, CircleIcon, PlayCircleIcon, SearchIcon, XIcon } from "lucide-react";
+import { ArrowLeftIcon, CheckCircle2Icon, EyeIcon, EyeOffIcon, ChevronRightIcon, CircleIcon, PlayCircleIcon, SearchIcon, XIcon } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 
 import { KindIcon } from "@/components/kind-icon";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useLocalPref } from "@/hooks/use-local-pref";
 import { Bar } from "@/components/progress-visuals";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
@@ -42,6 +45,7 @@ export function CourseSidebar({
   const currentId = params.lessonId;
   const { lessons: progress } = useProgress();
   const [query, setQuery] = useState("");
+  const [hideDone, setHideDone] = useLocalPref("lui:hide-completed", false);
   const stats = courseStats(course, progress);
   const colors = useMemo(() => groupColors(course.modules.map((m) => m.group)), [course.modules]);
   const groups = useMemo(() => groupModules(course.modules), [course.modules]);
@@ -72,6 +76,11 @@ export function CourseSidebar({
       m.lessons.filter((l) => l.title.toLowerCase().includes(q) || l.fileName.toLowerCase().includes(q)),
     );
   }, [query, course.modules]);
+
+  // "Hide completed" keeps unfinished modules and the one being viewed.
+  const isUnfinishedOrCurrent = (m: Course["modules"][number]) =>
+    m.id === currentModuleId || moduleStats(m, progress).done < m.lessons.length;
+  const hiddenModules = hideDone ? course.modules.filter((m) => !isUnfinishedOrCurrent(m)).length : 0;
 
   const lessonRow = (l: Lesson) => (
     <LessonRow
@@ -105,7 +114,8 @@ export function CourseSidebar({
             <span className="font-medium text-primary">{stats.percent}% complete</span>
           </p>
         </div>
-        <div className="relative">
+        <div className="relative flex items-center gap-1.5">
+          <div className="relative flex-1">
           <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <SidebarInput
             value={query}
@@ -123,10 +133,31 @@ export function CourseSidebar({
               <XIcon className="size-3.5" />
             </button>
           )}
+          </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant={hideDone ? "secondary" : "ghost"}
+                size="icon-sm"
+                onClick={() => setHideDone(!hideDone)}
+                aria-label={hideDone ? "Show completed lessons" : "Hide completed lessons"}
+                aria-pressed={hideDone}
+              >
+                {hideDone ? <EyeOffIcon /> : <EyeIcon />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{hideDone ? "Show completed" : "Hide completed"}</TooltipContent>
+          </Tooltip>
         </div>
       </SidebarHeader>
 
       <SidebarContent className="scrollbar-thin gap-0">
+        {hideDone && !results && hiddenModules > 0 && (
+          <p className="flex items-center gap-1.5 px-4 pt-3 text-[11px] text-muted-foreground">
+            <CheckCircle2Icon className="size-3.5 text-success" />
+            {hiddenModules} completed {hiddenModules === 1 ? "module" : "modules"} hidden
+          </p>
+        )}
         {results ? (
           <SidebarGroup>
             <SidebarGroupLabel>{results.length} results</SidebarGroupLabel>
@@ -135,6 +166,8 @@ export function CourseSidebar({
         ) : (
           groups.map((group, gi) => {
             const color = colors.get(group.name ?? "") ?? "#1E88E5";
+            const modules = hideDone ? group.modules.filter(isUnfinishedOrCurrent) : group.modules;
+            if (modules.length === 0) return null;
             return (
               <SidebarGroup key={`${group.name}-${gi}`} className="py-1" style={{ "--c": color } as CSSProperties}>
                 {group.name && (
@@ -144,7 +177,7 @@ export function CourseSidebar({
                   </SidebarGroupLabel>
                 )}
                 <SidebarMenu className="gap-0.5">
-                  {group.modules.map((m) => {
+                  {modules.map((m) => {
                     const ms = moduleStats(m, progress);
                     const isOpen = open.has(m.id);
                     return (
@@ -188,7 +221,7 @@ export function CourseSidebar({
                             </SidebarMenuButton>
                           </CollapsibleTrigger>
                           <CollapsibleContent>
-                            <ul className="mb-1 ml-3 mt-0.5 border-l border-[#e1ecf7] pl-1.5">{m.lessons.map(lessonRow)}</ul>
+                            <ul className="mb-1 ml-3 mt-0.5 border-l border-[#e1ecf7] pl-1.5">{(hideDone ? m.lessons.filter((l) => !progress[l.id]?.completed || l.id === currentId) : m.lessons).map(lessonRow)}</ul>
                           </CollapsibleContent>
                         </SidebarMenuItem>
                       </Collapsible>
