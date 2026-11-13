@@ -89,3 +89,8 @@ export function fileUrl(courseId: string, relPath: string, opts?: { download?: b
   const encoded = relPath.split("/").map(encodeURIComponent).join("/");
   return `/api/file/${courseId}/${encoded}${opts?.download ? "?download=1" : ""}`;
 }
+
+/** "1 lesson", "3 lessons" */
+export function plural(n: number, word: string) {
+  return `${n} ${word}${n === 1 ? "" : "s"}`;
+}

@@ -12,6 +12,7 @@ import {
   listDeviceCourses,
   onDeviceCoursesChange,
 } from "@/lib/client/device-db";
+import { plural } from "@/lib/files";
 import { courseStats, resumeLesson } from "@/lib/progress";
 import type { CourseProgress } from "@/lib/types";
 
@@ -95,7 +96,7 @@ export function DeviceLibrary({ hosted }: { hosted: boolean }) {
               id={record.id}
               href={`/device/${record.id}`}
               title={record.title}
-              meta={`On this device · ${record.course.modules.length} modules · ${record.course.lessonCount} lessons`}
+              meta={`On this device · ${plural(record.course.modules.length, "module")} · ${plural(record.course.lessonCount, "lesson")}`}
               stats={stats}
               resume={resume && { href: `/device/${record.id}/learn/${resume.id}`, title: resume.title }}
               started={stats.done > 0 || !!progress.lastLessonId}
