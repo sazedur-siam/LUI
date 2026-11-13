@@ -18,6 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDuration } from "@/lib/files";
 import { courseStats, flatLessons, resumeLesson, sumDurations } from "@/lib/progress";
+import { splitStamps } from "@/lib/timestamps";
 import type { Course, CourseProgress } from "@/lib/types";
 
 /**
@@ -58,6 +59,12 @@ export function CourseOverview({
   // One entry per distinct resource file (courses often repeat the same notes PDF).
   const seen = new Set<string>();
   const resources: (ResourceRef & { moduleTitle: string })[] = [];
+  const notes = course.modules.flatMap((m) =>
+    m.lessons.flatMap((lesson) => {
+      const text = progress.lessons[lesson.id]?.notes;
+      return text?.trim() ? [{ lesson, moduleTitle: m.title, text }] : [];
+    }),
+  );
   for (const m of course.modules) {
     for (const l of m.lessons) {
       for (const r of l.resources) {
@@ -156,6 +163,7 @@ export function CourseOverview({
         <TabsList>
           <TabsTrigger value="curriculum">Curriculum</TabsTrigger>
           <TabsTrigger value="resources">Resources · {resources.length}</TabsTrigger>
+          {notes.length > 0 && <TabsTrigger value="notes">Notes · {notes.length}</TabsTrigger>}
         </TabsList>
         <TabsContent value="curriculum">
           <Curriculum
@@ -179,6 +187,36 @@ export function CourseOverview({
             </div>
           )}
         </TabsContent>
+        {notes.length > 0 && (
+          <TabsContent value="notes" className="space-y-3">
+            {notes.map(({ lesson, moduleTitle, text }) => (
+              <article key={lesson.id} className="rounded-2xl border bg-white p-4">
+                <p className="text-xs text-muted-foreground">{moduleTitle}</p>
+                <Link
+                  href={`${basePath}/learn/${lesson.id}`}
+                  className="text-sm font-medium hover:text-primary hover:underline"
+                >
+                  {lesson.title}
+                </Link>
+                <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">
+                  {splitStamps(text).map((part, i) =>
+                    "stamp" in part ? (
+                      <Link
+                        key={i}
+                        href={`${basePath}/learn/${lesson.id}?t=${part.seconds}`}
+                        className="rounded-full bg-[#e3f2fd] px-1.5 py-0.5 text-xs font-medium text-[#1565c0] hover:bg-[#bbdefb]"
+                      >
+                        {part.stamp}
+                      </Link>
+                    ) : (
+                      <span key={i}>{part.text}</span>
+                    ),
+                  )}
+                </p>
+              </article>
+            ))}
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

@@ -24,6 +24,7 @@ export async function POST(request: Request, ctx: RouteContext<"/api/progress/[c
         position: patch.position,
         duration: patch.duration,
         page: patch.page,
+        notes: patch.notes,
         opened: patch.opened === true,
       });
     }

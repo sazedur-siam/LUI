@@ -30,6 +30,8 @@ export interface MediaPlayerProps {
   onTime?: (position: number, duration: number) => void;
   onEnded?: () => void;
   onPause?: (position: number, duration: number) => void;
+  /** Receives the playing media element (for notes: read the time, seek). */
+  onMediaElement?: (el: HTMLMediaElement) => void;
   overlay?: React.ReactNode;
   className?: string;
 }
@@ -108,12 +110,13 @@ export function MediaPlayer(props: MediaPlayerProps) {
   const handlers = {
     onLoadedMetadata: (e: SyntheticEvent<HTMLMediaElement>) => {
       const el = e.currentTarget;
+      props.onMediaElement?.(el);
       // Some browsers "play" an unsupported video stream as audio only; treat that as a failure.
       if (plan?.hasVideo && kind === "video" && el instanceof HTMLVideoElement && el.videoWidth === 0) {
         if (plan.mode !== "transcode") return fallback();
       }
       const at = props.startAt ?? 0;
-      if (restoredFor.current == null && at > 3 && Number.isFinite(el.duration) && at < el.duration - 3) {
+      if (restoredFor.current == null && at > 0.5 && Number.isFinite(el.duration) && at < el.duration - 0.5) {
         el.currentTime = at;
       }
       restoredFor.current = plan?.src ?? "";
