@@ -69,7 +69,7 @@ async function Library() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {items.map(({ record, course, progress }) => {
             const stats = course ? courseStats(course, progress.lessons) : null;
-            const resume = course ? resumeLesson(course, progress) : null;
+            const resume = course ? resumeLesson(course, progress, record.access) : null;
             return (
               <CourseCard
                 key={record.id}
@@ -80,7 +80,8 @@ async function Library() {
                 stats={stats}
                 resume={resume && { href: `/course/${record.id}/learn/${resume.id}`, title: resume.title }}
                 started={(stats?.done ?? 0) > 0 || !!progress.lastLessonId}
-                menu={<CourseMenu courseId={record.id} title={record.title} />}
+                menu={<CourseMenu courseId={record.id} title={record.title} access={record.access} />}
+                guided={record.access === "guided"}
               />
             );
           })}

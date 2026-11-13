@@ -20,6 +20,7 @@ import { useLocalPref } from "@/hooks/use-local-pref";
 import type { Lesson, SubtitleTrack } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
+import { LockedLesson, useLessonAccess } from "./lesson-access";
 import { LessonNotes } from "./lesson-notes";
 import { TranscriptPanel } from "./transcript-panel";
 import { useProgress } from "./progress-context";
@@ -66,9 +67,15 @@ export function LessonView({ lesson, moduleTitle, moduleNumber, index, total, pr
   });
   const [initialPage] = useState(() => progress?.page);
 
+  // Guided courses: lessons past the frontier stay locked until the previous one is finished.
+  const access = useLessonAccess();
+  const unlocked = access.isUnlocked(lesson.id);
+  const nextOpen = !!next && access.isUnlocked(next.id);
+  const nextLockedHint = next && !nextOpen ? `Finish “${access.blockerFor(next.id)?.title ?? lesson.title}” to unlock` : undefined;
+
   useEffect(() => {
-    markOpened(lesson.id);
-  }, [lesson.id, markOpened]);
+    if (unlocked) markOpened(lesson.id);
+  }, [lesson.id, markOpened, unlocked]);
 
   // Set from event handlers only, so auto-complete fires once per view.
   const autoCompleted = useRef(false);
@@ -79,8 +86,8 @@ export function LessonView({ lesson, moduleTitle, moduleNumber, index, total, pr
   const lastSaved = useRef(0);
 
   const goNext = useCallback(() => {
-    if (next) router.push(`${basePath}/learn/${next.id}`);
-  }, [next, router, basePath]);
+    if (next && access.isUnlocked(next.id)) router.push(`${basePath}/learn/${next.id}`);
+  }, [next, router, basePath, access]);
 
   // Up-next countdown after a video ends.
   useEffect(() => {
@@ -107,7 +114,7 @@ export function LessonView({ lesson, moduleTitle, moduleNumber, index, total, pr
         return;
       }
       if (!e.shiftKey || e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.key === "N" && next) {
+      if (e.key === "N" && next && access.isUnlocked(next.id)) {
         e.preventDefault();
         router.push(`${basePath}/learn/${next.id}`);
       } else if (e.key === "P" && prev) {
@@ -117,7 +124,7 @@ export function LessonView({ lesson, moduleTitle, moduleNumber, index, total, pr
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [basePath, next, prev, router, tracks.length, showTranscript, setShowTranscript]);
+  }, [basePath, next, prev, router, tracks.length, showTranscript, setShowTranscript, access]);
 
   const onTime = (position: number, duration: number) => {
     if (Math.abs(position - lastSaved.current) >= 5) {
@@ -139,7 +146,7 @@ export function LessonView({ lesson, moduleTitle, moduleNumber, index, total, pr
   };
 
   const overlay =
-    upNext !== null && next ? (
+    upNext !== null && next && nextOpen ? (
       <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#0d2b45]/55 p-4 backdrop-blur-[2px]">
         <div className="w-full max-w-xs rounded-2xl bg-white p-5 text-center shadow-[0_12px_40px_-12px_rgba(13,43,69,0.5)]">
           <p className="text-xs text-muted-foreground">Up next in {upNext}s</p>
@@ -173,13 +180,22 @@ export function LessonView({ lesson, moduleTitle, moduleNumber, index, total, pr
             <ChevronLeftIcon />
             <span className="hidden sm:inline">Previous</span>
           </NavButton>
-          <NavButton href={next && `${basePath}/learn/${next.id}`} label="Next" hint="N" title={next?.title}>
+          <NavButton
+            href={nextOpen && next ? `${basePath}/learn/${next.id}` : null}
+            label="Next"
+            hint="N"
+            title={next?.title}
+            disabledHint={nextLockedHint}
+          >
             <span className="hidden sm:inline">Next</span>
             <ChevronRightIcon />
           </NavButton>
         </div>
       </header>
 
+      {!unlocked ? (
+        <LockedLesson lesson={lesson} blocker={access.blockerFor(lesson.id)} frontier={access.frontier} basePath={basePath} />
+      ) : (
       <div className={cn("mx-auto w-full px-4 py-5 sm:px-6", isMedia ? "max-w-6xl" : "max-w-7xl")}>
         <FileViewer
           key={lesson.id}
@@ -239,9 +255,13 @@ export function LessonView({ lesson, moduleTitle, moduleNumber, index, total, pr
             </Button>
             {next && (
               <Button
+                // Completing the frontier lesson unlocks the next one, so navigate directly
+                // (the access check would still see the pre-completion state here).
+                disabled={completed && !nextOpen}
+                title={completed && !nextOpen ? nextLockedHint : undefined}
                 onClick={() => {
                   if (!completed) setCompleted(lesson.id, true);
-                  goNext();
+                  router.push(`${basePath}/learn/${next.id}`);
                 }}
               >
                 {completed ? "Next lesson" : "Complete & continue"} <ArrowRightIcon />
@@ -266,6 +286,7 @@ export function LessonView({ lesson, moduleTitle, moduleNumber, index, total, pr
           </section>
         )}
       </div>
+      )}
     </>
   );
 }
@@ -275,19 +296,25 @@ function NavButton({
   label,
   hint,
   title,
+  disabledHint,
   children,
 }: {
   href: string | null;
   label: string;
   hint: string;
   title?: string;
+  /** Why the button is disabled (e.g. the next lesson is locked). */
+  disabledHint?: string;
   children: React.ReactNode;
 }) {
   if (!href) {
+    // Disabled buttons don't get pointer events, so the hint sits on a wrapper.
     return (
-      <Button variant="ghost" size="sm" disabled aria-label={label}>
-        {children}
-      </Button>
+      <span title={disabledHint}>
+        <Button variant="ghost" size="sm" disabled aria-label={disabledHint ? `${label} (locked)` : label}>
+          {children}
+        </Button>
+      </span>
     );
   }
   return (

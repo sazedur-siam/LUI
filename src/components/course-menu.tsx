@@ -1,6 +1,15 @@
 "use client";
 
-import { DownloadIcon, EllipsisVerticalIcon, RefreshCwIcon, RotateCcwIcon, Trash2Icon, UploadIcon } from "lucide-react";
+import {
+  DownloadIcon,
+  EllipsisVerticalIcon,
+  LockIcon,
+  LockOpenIcon,
+  RefreshCwIcon,
+  RotateCcwIcon,
+  Trash2Icon,
+  UploadIcon,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { toast } from "sonner";
@@ -11,6 +20,7 @@ import {
   removeCourseAction,
   rescanCourseAction,
   resetProgressAction,
+  setCourseAccessAction,
 } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,8 +32,19 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { downloadJson, pickJsonFile } from "@/lib/client/file-transfer";
 import { backupFileName, describeSummary } from "@/lib/progress-transfer";
+import type { CourseAccess } from "@/lib/types";
 
-export function CourseMenu({ courseId, title, afterRemove }: { courseId: string; title: string; afterRemove?: string }) {
+export function CourseMenu({
+  courseId,
+  title,
+  access,
+  afterRemove,
+}: {
+  courseId: string;
+  title: string;
+  access?: CourseAccess;
+  afterRemove?: string;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
@@ -57,6 +78,20 @@ export function CourseMenu({ courseId, title, afterRemove }: { courseId: string;
           }}
         >
           <RotateCcwIcon /> Reset progress
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onSelect={() => {
+            const next = access === "guided" ? "open" : "guided";
+            if (next === "open" && !confirm(`Unlock every lesson in “${title}”?`)) return;
+            startTransition(async () => {
+              await setCourseAccessAction(courseId, next);
+              toast.success(next === "guided" ? "Guided: lessons now unlock in order" : "All lessons unlocked");
+              router.refresh();
+            });
+          }}
+        >
+          {access === "guided" ? <LockOpenIcon /> : <LockIcon />}
+          {access === "guided" ? "Lessons: unlock all" : "Lessons: guided (in order)"}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem

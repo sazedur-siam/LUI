@@ -1,4 +1,4 @@
-import { ArrowRightIcon, LayersIcon, MonitorSmartphoneIcon, PlayIcon } from "lucide-react";
+import { ArrowRightIcon, LayersIcon, LockIcon, MonitorSmartphoneIcon, PlayIcon } from "lucide-react";
 import Link from "next/link";
 import type { CSSProperties } from "react";
 
@@ -17,6 +17,8 @@ export interface CourseCardProps {
   menu?: React.ReactNode;
   /** Device courses are saved in this browser only. */
   device?: boolean;
+  /** Guided course: lessons unlock in order. */
+  guided?: boolean;
 }
 
 function initials(title: string) {
@@ -24,7 +26,7 @@ function initials(title: string) {
   return (words[0]?.[0] ?? "C").toUpperCase() + (words[1]?.[0] ?? "").toUpperCase();
 }
 
-export function CourseCard({ id, href, title, meta, stats, resume, started, menu, device }: CourseCardProps) {
+export function CourseCard({ id, href, title, meta, stats, resume, started, menu, device, guided }: CourseCardProps) {
   const color = colorFor(id);
   return (
     <article className="group relative flex flex-col rounded-2xl border bg-card p-5 transition-shadow hover:shadow-[0_6px_24px_-12px_rgba(30,136,229,0.35)]">
@@ -45,6 +47,14 @@ export function CourseCard({ id, href, title, meta, stats, resume, started, menu
             {device ? <MonitorSmartphoneIcon className="size-3.5" /> : <LayersIcon className="size-3.5" />}
             {meta}
           </p>
+          {guided && (
+            <span
+              className="tint mt-1.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
+              style={{ "--c": "#1E88E5" } as CSSProperties}
+            >
+              <LockIcon className="size-3" /> Guided
+            </span>
+          )}
         </div>
         {menu && <div className="relative z-10 -mr-2 -mt-1">{menu}</div>}
       </div>

@@ -129,17 +129,25 @@ async function saveScan(opts: {
   if (opts.handle) handles.set(id, opts.handle);
 
   const existing = await getDeviceCourse(id);
+  const now = Date.now();
   const record: DeviceCourseRecord = {
     id,
     title,
     folderName: opts.folderName,
-    addedAt: existing?.addedAt ?? Date.now(),
-    scannedAt: Date.now(),
+    // addedAt === scannedAt marks a course that was just added (see isNewDeviceCourse).
+    addedAt: existing?.addedAt ?? now,
+    scannedAt: now,
     course,
     handle: opts.handle ?? existing?.handle,
+    access: existing?.access,
   };
   await putDeviceCourse(record);
   return record;
+}
+
+/** True right after a folder is added for the first time (not when it's re-opened or rescanned). */
+export function isNewDeviceCourse(record: DeviceCourseRecord) {
+  return record.addedAt === record.scannedAt;
 }
 
 /** Chromium: pick a folder with a persistent handle. Returns null if the user cancels. */

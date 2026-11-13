@@ -28,6 +28,7 @@ export function DeviceOverviewPage() {
           basePath={`/device/${courseId}`}
           location={`“${ctx.record.folderName}” on this device`}
           device
+          access={ctx.record.access}
           menu={<DeviceCourseMenu record={ctx.record} afterRemove="/" />}
         />
       )}
@@ -46,6 +47,7 @@ export function DeviceLearnLayout({ children }: { children: React.ReactNode }) {
             progress={ctx.progress}
             durations={ctx.durations}
             basePath={`/device/${courseId}`}
+            access={ctx.record.access}
             save={ctx.save}
           >
             {children}
@@ -79,10 +81,10 @@ export function DeviceLessonPage() {
 /** /device/:id/learn → the lesson to resume. */
 export function DeviceResumePage() {
   const router = useRouter();
-  const { course, progress } = useDeviceCourse();
+  const { course, progress, record } = useDeviceCourse();
   useEffect(() => {
-    const lesson = resumeLesson(course, progress);
+    const lesson = resumeLesson(course, progress, record.access);
     if (lesson) router.replace(`/device/${course.id}/learn/${lesson.id}`);
-  }, [course, progress, router]);
+  }, [course, progress, record.access, router]);
   return null;
 }

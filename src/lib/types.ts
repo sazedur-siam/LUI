@@ -55,11 +55,15 @@ export interface Course {
   lessonCount: number;
 }
 
+/** "guided" unlocks lessons in order; "open" (default when missing) leaves every lesson available. */
+export type CourseAccess = "open" | "guided";
+
 export interface CourseRecord {
   id: string;
   root: string;
   title: string;
   addedAt: number;
+  access?: CourseAccess;
 }
 
 export interface LessonProgress {

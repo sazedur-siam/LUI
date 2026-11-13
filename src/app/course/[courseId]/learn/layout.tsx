@@ -39,7 +39,7 @@ async function Shell({
   if (!course) notFound();
   const [progress, { durations }] = await Promise.all([getProgress(courseId), getDurations(course)]);
   return (
-    <LearnShell course={course} progress={progress} durations={durations}>
+    <LearnShell course={course} progress={progress} durations={durations} access={record.access}>
       {children}
     </LearnShell>
   );
